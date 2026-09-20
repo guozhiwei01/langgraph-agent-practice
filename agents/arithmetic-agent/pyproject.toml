@@ -1,0 +1,19 @@
+[project]
+name = "arithmetic-agent"
+version = "0.1.0"
+description = "A minimal LangGraph arithmetic tool-calling agent."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.4.1",
+    "langchain-openai>=1.6.2",
+    "langgraph>=1.2.11",
+    "python-dotenv>=1.2.3",
+]
+
+[project.scripts]
+arithmetic-agent = "arithmetic_agent.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

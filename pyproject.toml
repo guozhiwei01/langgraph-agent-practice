@@ -1,0 +1,10 @@
+[project]
+name = "langgraph-agent-practice"
+version = "0.1.0"
+description = "A uv workspace containing small, independently runnable LangGraph learning agents."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["agents/*", "packages/*"]

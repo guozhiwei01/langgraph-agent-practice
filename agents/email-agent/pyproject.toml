@@ -1,0 +1,29 @@
+[project]
+name = "email-agent"
+version = "0.1.0"
+description = "A layered learning skeleton for a LangGraph email Agent."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116",
+    "google-api-python-client>=2.0",
+    "google-auth-oauthlib>=1.0",
+    "langchain>=1.4.1",
+    "langchain-openai>=1.6.2",
+    "langgraph>=1.2.11",
+    "openai>=3.14.1",
+    "pgvector>=0.4.2",
+    "pydantic>=2.0",
+    "psycopg[binary]>=3.3.3",
+    "python-dotenv>=1.2.3",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.35",
+]
+
+[project.scripts]
+email-agent = "email_agent.main:main"
+email-agent-review = "email_agent.web:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

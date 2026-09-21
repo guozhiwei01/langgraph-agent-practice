@@ -6,8 +6,9 @@
 
 ```python
 class EmailClassification(TypedDict):
-    intent: Literal["question", "bug", "billing", "feature", "complex"]
+    intent: Literal["question", "bug", "billing", "feature", "other"]
     urgency: Literal["low", "medium", "high", "critical"]
+    complexity: Literal["standard", "investigation", "specialist"]
     topic: str
     summary: str
 ```
@@ -30,7 +31,7 @@ class EmailClassification(TypedDict):
 学习阶段建议暂时保留“一封邮件对应一个主要意图”的模型：
 
 ```python
-intent: Literal["question", "bug", "billing", "feature", "complex"]
+intent: Literal["question", "bug", "billing", "feature", "other"]
 ```
 
 分类器选择对当前处理最重要的意图，其他信息保留在 `topic` 和 `summary` 中。例如涉及重复扣费和导出崩溃时，可以优先处理资金问题：
@@ -46,7 +47,7 @@ intent: Literal["question", "bug", "billing", "feature", "complex"]
 
 这样做的目的不是模拟完整生产系统，而是先掌握以下 LangGraph 基础：
 
-1. 使用结构化输出对邮件分类。
+1. 使用专用决策模型的结构化输出对邮件分类。
 2. 将分类结果写入图状态。
 3. 根据一个确定值进行条件路由。
 4. 搜索文档、生成草稿并完成人工确认。

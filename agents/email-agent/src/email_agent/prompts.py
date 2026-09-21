@@ -1,20 +1,30 @@
 """Prompt templates formatted on-demand within nodes."""
 
-CLASSIFICATION_PROMPT_TEMPLATE = """Analyze this customer email and classify it:
-Email: {email_content}
-From: {sender_email}
-Return only one valid JSON object with these fields:
-- intent: one of question, bug, billing, feature, complex
-- urgency: one of low, medium, high, critical
-- topic: a short string
-- summary: a concise string
-Do not include Markdown fences or explanatory text."""
+DRAFT_RESPONSE_TEMPLATE = """Draft a polite and professional customer support response.
 
-DRAFT_RESPONSE_TEMPLATE = """Draft a polite and professional response to: {email_content}
-Context Information:
+Customer email:
+{email_content}
+
+Approved evidence:
 {docs}
 
 Guidelines:
 - Maintain a helpful and empathetic tone
 - Directly address customer concerns
-- Reference the documentation provided"""
+- Use only the approved evidence for product behavior, policy, timing, and procedures
+- Do not promise refunds, compensation, deadlines, or account changes
+- Do not request passwords, authentication tokens, secret keys, or full payment credentials
+- If the evidence is incomplete, clearly say what cannot yet be confirmed"""
+
+
+CLARIFICATION_RESPONSE_TEMPLATE = """Draft a short, polite response asking for the minimum
+additional information needed to handle this customer request safely.
+
+Customer email:
+{email_content}
+
+Guidelines:
+- Do not invent product behavior or policy
+- Do not promise refunds, compensation, deadlines, or account changes
+- Do not request passwords, authentication tokens, secret keys, or full payment credentials
+- Ask only for information relevant to diagnosing or routing the request"""

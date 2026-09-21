@@ -18,6 +18,10 @@ class IntegrationAdapterTests(unittest.TestCase):
         self.assertIn("[redacted-email]", value)
         self.assertIn("[redacted-secret]", value)
 
+    def test_github_issue_title_can_be_sanitized(self) -> None:
+        value = sanitize_for_issue("Customer bug: jane@example.com cannot sign in")
+        self.assertEqual(value, "Customer bug: [redacted-email] cannot sign in")
+
     def test_plain_text_mime_part_is_decoded(self) -> None:
         encoded = base64.urlsafe_b64encode("Hello 客户".encode()).decode()
         payload = {

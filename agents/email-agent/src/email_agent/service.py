@@ -16,7 +16,7 @@ from email_agent.storage import (
     record_tool_success,
     update_task_draft,
 )
-from email_agent.tools.github_issues import create_issue
+from email_agent.tools.github_issues import create_issue, sanitize_for_issue
 from email_agent.tools.gmail import (
     fetch_message,
     list_unread_labeled_message_ids,
@@ -39,7 +39,9 @@ class EmailAgentService:
             "task_id": request.task_id,
             "classification": None,
             "search_results": None,
+            "evidence_evaluation": None,
             "draft_response": None,
+            "response_validation": None,
             "messages": None,
         }
         try:
@@ -47,11 +49,15 @@ class EmailAgentService:
                 pass
             values = app.get_state(config).values
             classification = values.get("classification") or {}
+            evidence_evaluation = values.get("evidence_evaluation") or {}
+            response_validation = values.get("response_validation") or {}
             draft = values.get("draft_response")
             update_task_draft(
                 request.task_id,
                 status="waiting_for_review",
                 classification=classification,
+                evidence_evaluation=evidence_evaluation,
+                response_validation=response_validation,
                 draft=draft,
             )
             return EmailResult(
@@ -157,7 +163,9 @@ class EmailAgentService:
         if existing:
             return existing
         number, url = create_issue(
-            title=f"Customer bug: {classification.get('topic', 'Uncategorized issue')}",
+            title=sanitize_for_issue(
+                f"Customer bug: {classification.get('topic', 'Uncategorized issue')}"
+            ),
             description=classification.get("summary", "No sanitized summary available."),
         )
         response = {"number": number, "url": url}

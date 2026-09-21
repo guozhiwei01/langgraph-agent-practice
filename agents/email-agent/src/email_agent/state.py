@@ -5,7 +5,11 @@ Core Principle: Store raw data, never pre-formatted prompts (LangGraph Best Prac
 
 from typing import Optional, TypedDict
 from langchain_core.messages import HumanMessage
-from email_agent.schemas import EmailClassification
+from email_agent.schemas import (
+    EmailClassification,
+    EvidenceEvaluation,
+    ResponseValidation,
+)
 
 
 class EmailAgentState(TypedDict):
@@ -18,5 +22,7 @@ class EmailAgentState(TypedDict):
     task_id: Optional[int]
     classification: Optional[EmailClassification]
     search_results: Optional[list[str]]
+    evidence_evaluation: Optional[EvidenceEvaluation]
     draft_response: Optional[str]
+    response_validation: Optional[ResponseValidation]
     messages: Optional[list[HumanMessage]]

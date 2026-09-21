@@ -19,6 +19,16 @@ def page(message: str = "") -> str:
     cards = []
     for task in list_review_tasks():
         classification = task.get("classification") or {}
+        evidence = task.get("evidence_evaluation") or {}
+        validation = task.get("response_validation") or {}
+        reasons = validation.get("review_reasons") or []
+        reasons_html = "".join(f"<li>{escape(str(reason))}</li>" for reason in reasons)
+        no_draft_notice = (
+            "<p class=\"warning\">Automation stopped during triage. "
+            "A reviewer must compose the response manually.</p>"
+            if not task.get("draft_response")
+            else ""
+        )
         disabled = task["status"] != "waiting_for_review"
         disabled_attr = "disabled" if disabled else ""
         cards.append(
@@ -30,9 +40,15 @@ def page(message: str = "") -> str:
               <p><strong>Classification:</strong>
                  {escape(str(classification.get('intent', 'pending')))} /
                  {escape(str(classification.get('urgency', 'pending')))}</p>
+              <p><strong>Evidence:</strong>
+                 {escape(str(evidence.get('evidence_sufficient', 'not evaluated')))} ·
+                 <strong>Draft safe:</strong>
+                 {escape(str(validation.get('safe_to_send', 'not evaluated')))}</p>
+              {f'<ul class="warning">{reasons_html}</ul>' if reasons_html else ''}
+              {no_draft_notice}
               <details><summary>Original email</summary><pre>{escape(task['plain_text_body'])}</pre></details>
               <form method="post" action="/tasks/{task['id']}/approve">
-                <label>Reviewed response</label>
+                <label>{'Reviewer-authored response' if not task.get('draft_response') else 'Reviewed response'}</label>
                 <textarea name="response_text" rows="10" {disabled_attr}>{escape(task.get('draft_response') or '')}</textarea>
                 <button type="submit" {disabled_attr}>Approve and send</button>
               </form>
@@ -52,6 +68,7 @@ def page(message: str = "") -> str:
     textarea,input{{width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #ccd3dc;border-radius:8px}}
     button{{padding:10px 16px;border:0;border-radius:8px;background:#2156d9;color:white;cursor:pointer}}
     .reject button{{background:#a72a35}} pre{{white-space:pre-wrap}} .notice{{color:#176b3a}}
+    .warning{{color:#8a3a00;background:#fff4e5;padding:12px 28px;border-radius:8px}}
     </style></head><body><header><h1>Email Agent Review</h1>
     <p>Local demo: Gmail label <code>email-agent</code>; every reply requires approval.</p>
     <form method="post" action="/sync"><button type="submit">Sync labeled unread Gmail</button></form>

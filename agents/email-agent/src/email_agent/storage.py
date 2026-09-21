@@ -84,6 +84,7 @@ def list_review_tasks() -> list[dict[str, Any]]:
             cursor.execute(
                 """
                 SELECT task.id, task.status, task.classification, task.draft_response,
+                       task.evidence_evaluation, task.response_validation,
                        task.created_at, email.sender_email, email.subject,
                        email.plain_text_body
                 FROM agent_tasks AS task
@@ -96,17 +97,32 @@ def list_review_tasks() -> list[dict[str, Any]]:
 
 
 def update_task_draft(
-    task_id: int, *, status: str, classification: dict[str, Any], draft: str | None
+    task_id: int,
+    *,
+    status: str,
+    classification: dict[str, Any],
+    evidence_evaluation: dict[str, Any],
+    response_validation: dict[str, Any],
+    draft: str | None,
 ) -> None:
     with psycopg.connect(_database_url()) as connection:
         connection.execute(
             """
             UPDATE agent_tasks
-            SET status = %s, classification = %s::jsonb, draft_response = %s,
+            SET status = %s, classification = %s::jsonb,
+                evidence_evaluation = %s::jsonb, response_validation = %s::jsonb,
+                draft_response = %s,
                 error_code = NULL, error_message = NULL, updated_at = NOW()
             WHERE id = %s
             """,
-            (status, psycopg.types.json.Jsonb(classification), draft, task_id),
+            (
+                status,
+                psycopg.types.json.Jsonb(classification),
+                psycopg.types.json.Jsonb(evidence_evaluation),
+                psycopg.types.json.Jsonb(response_validation),
+                draft,
+                task_id,
+            ),
         )
 
 

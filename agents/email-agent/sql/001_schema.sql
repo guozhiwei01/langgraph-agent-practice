@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS agent_tasks (
             'rejected', 'sending', 'sent', 'failed'
         )),
     classification JSONB,
+    evidence_evaluation JSONB,
+    response_validation JSONB,
     draft_response TEXT,
     error_code TEXT,
     error_message TEXT,
@@ -171,4 +173,3 @@ AS $$
 $$;
 
 COMMIT;
-

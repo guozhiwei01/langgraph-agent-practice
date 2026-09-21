@@ -37,7 +37,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         with patch.object(knowledge_base, "search_knowledge", return_value=[hit]) as search:
             result = knowledge_base.query_knowledge_base("reset password", category="account")
-        search.assert_called_once_with("reset password", category="account")
+        search.assert_called_once_with("reset password", category="account", limit=2)
         self.assertEqual(len(result), 1)
         self.assertIn("DEMO / fictional policy", result[0])
         self.assertIn("kb://demo/password", result[0])

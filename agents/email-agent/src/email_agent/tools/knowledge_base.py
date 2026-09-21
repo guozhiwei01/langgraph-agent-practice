@@ -78,7 +78,7 @@ def search_knowledge(
     limit: int = 2,
     min_similarity: float = 0.35,
 ) -> list[KnowledgeHit]:
-    """Return chunks from the best matching document for the current single-issue flow."""
+    """Return broad candidate chunks for downstream business-aware reranking."""
     if not query.strip():
         return []
     if not 1 <= limit <= 20:
@@ -109,18 +109,11 @@ def search_knowledge(
                       AND chunk.embedding IS NOT NULL
                       AND chunk.embedding_model = %s
                       AND (%s::text IS NULL OR document.category = %s)
-                ), best_document AS (
-                    SELECT document_id
-                    FROM ranked
-                    GROUP BY document_id
-                    HAVING MAX(similarity) >= %s
-                    ORDER BY MAX(similarity) DESC
-                    LIMIT 1
                 )
                 SELECT slug, title, heading, content, source_uri, similarity, is_demo
                 FROM ranked
-                WHERE document_id = (SELECT document_id FROM best_document)
-                ORDER BY similarity DESC, chunk_id
+                WHERE similarity >= %s
+                ORDER BY similarity DESC, document_id, chunk_id
                 LIMIT %s
                 """,
                 (vector, model, category, category, min_similarity, limit),
@@ -128,7 +121,12 @@ def search_knowledge(
             return [KnowledgeHit(*row) for row in cursor.fetchall()]
 
 
-def query_knowledge_base(query: str, *, category: str | None = None) -> list[str]:
+def query_knowledge_base(
+    query: str,
+    *,
+    category: str | None = None,
+    limit: int = 2,
+) -> list[str]:
     """Adapt structured hits to the current draft node's list[str] state."""
     return [
         (
@@ -136,5 +134,5 @@ def query_knowledge_base(query: str, *, category: str | None = None) -> list[str
             f"source: {hit.source_uri}; similarity: {hit.similarity:.3f}] "
             f"{hit.title} — {hit.heading}\n{hit.content}"
         )
-        for hit in search_knowledge(query, category=category)
+        for hit in search_knowledge(query, category=category, limit=limit)
     ]

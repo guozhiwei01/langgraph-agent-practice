@@ -3,7 +3,7 @@ Global State container for the Email Agent workflow.
 Core Principle: Store raw data, never pre-formatted prompts (LangGraph Best Practice).
 """
 
-from typing import Optional, TypedDict
+from typing import Literal, Optional, TypedDict
 from langchain_core.messages import HumanMessage
 from email_agent.schemas import (
     EmailClassification,
@@ -25,4 +25,9 @@ class EmailAgentState(TypedDict):
     evidence_evaluation: Optional[EvidenceEvaluation]
     draft_response: Optional[str]
     response_validation: Optional[ResponseValidation]
+    review_decision: Optional[Literal["approved", "edited", "rejected"]]
+    reviewer_id: Optional[str]
+    review_reason: Optional[str]
+    provider_message_id: Optional[str]
+    github_issue_url: Optional[str]
     messages: Optional[list[HumanMessage]]

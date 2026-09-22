@@ -29,6 +29,12 @@ class Settings:
     gmail_label: str = "email-agent"
     github_token: Optional[str] = None
     github_repository: Optional[str] = None
+    review_phone: Optional[str] = None
+    review_password: Optional[str] = None
+    session_secret: Optional[str] = None
+    worker_poll_seconds: float = 1.0
+    worker_stale_seconds: int = 300
+    log_level: str = "INFO"
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -39,6 +45,8 @@ class Settings:
                 raise ValueError(f"{name} must be between 0 and 1.")
         if self.typesafe_timeout_seconds <= 0:
             raise ValueError("typesafe_timeout_seconds must be positive.")
+        if self.worker_poll_seconds <= 0 or self.worker_stale_seconds <= 0:
+            raise ValueError("Worker timing settings must be positive.")
 
 
 def get_settings() -> Settings:
@@ -73,6 +81,12 @@ def get_settings() -> Settings:
         gmail_label=os.getenv("GMAIL_LABEL", "email-agent"),
         github_token=os.getenv("GITHUB_TOKEN"),
         github_repository=os.getenv("GITHUB_REPOSITORY"),
+        review_phone=os.getenv("REVIEW_PHONE"),
+        review_password=os.getenv("REVIEW_PASSWORD"),
+        session_secret=os.getenv("SESSION_SECRET"),
+        worker_poll_seconds=float(os.getenv("WORKER_POLL_SECONDS", "1")),
+        worker_stale_seconds=int(os.getenv("WORKER_STALE_SECONDS", "300")),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
     )
 
 

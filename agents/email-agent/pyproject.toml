@@ -14,15 +14,17 @@ dependencies = [
     "openai>=3.14.1",
     "pgvector>=0.4.2",
     "pydantic>=2.0",
-    "psycopg[binary]>=3.3.3",
+    "psycopg[binary,pool]>=3.3.3",
     "python-dotenv>=1.2.3",
     "python-multipart>=0.0.20",
     "uvicorn>=0.35",
+    "langgraph-checkpoint-postgres>=3.0.0",
 ]
 
 [project.scripts]
 email-agent = "email_agent.main:main"
 email-agent-review = "email_agent.web:main"
+email-agent-worker = "email_agent.worker:main"
 
 [build-system]
 requires = ["hatchling"]

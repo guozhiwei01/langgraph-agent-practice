@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Email Agent 架构学习地图</title>
+  <style>
+    :root {
+      --bg: #f5f2ea;
+      --paper: #fffdf8;
+      --paper-2: #f9f6ef;
+      --ink: #18211f;
+      --muted: #66706c;
+      --line: #d9d4c8;
+      --navy: #193b4d;
+      --teal: #137c72;
+      --green: #2d7a54;
+      --amber: #a66212;
+      --red: #a83f3f;
+      --blue: #2b62b1;
+      --purple: #7356a6;
+      --cyan-soft: #e3f2ef;
+      --blue-soft: #e9f0fa;
+      --amber-soft: #fff0d8;
+      --red-soft: #fbe8e5;
+      --purple-soft: #eee9f7;
+      --shadow: 0 18px 50px rgba(31, 44, 40, .09);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(19,124,114,.08), transparent 28rem),
+        radial-gradient(circle at 100% 18%, rgba(166,98,18,.08), transparent 30rem),
+        var(--bg);
+      font: 15px/1.7 var(--sans);
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+    button { font: inherit; }
+    code, .mono { font-family: var(--mono); }
+    code {
+      padding: .12rem .36rem;
+      border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+      border-radius: 6px;
+      background: var(--paper-2);
+      font-size: .9em;
+    }
+    pre {
+      margin: 0;
+      padding: 18px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #16201e;
+      color: #eaf2ee;
+      font: 13px/1.65 var(--mono);
+    }
+    h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -.025em; }
+    h1 { margin: 0; font-size: clamp(2.5rem, 6vw, 5.5rem); }
+    h2 { margin: 0 0 10px; font-size: clamp(1.7rem, 3vw, 2.45rem); }
+    h3 { margin: 0 0 8px; font-size: 1.15rem; }
+    p { margin: 8px 0 14px; }
+    ul, ol { padding-left: 1.25rem; }
+
+    .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 26px 20px;
+      border-right: 1px solid var(--line);
+      background: color-mix(in srgb, var(--paper) 90%, transparent);
+      backdrop-filter: blur(14px);
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .brand { display: flex; gap: 11px; align-items: center; margin-bottom: 26px; }
+    .brand-mark {
+      display: grid; place-items: center; width: 40px; height: 40px;
+      color: white; background: var(--navy); border-radius: 12px; font-weight: 800;
+      box-shadow: 0 8px 20px rgba(25,59,77,.2);
+    }
+    .brand strong { display: block; font-size: 14px; }
+    .brand span { display: block; color: var(--muted); font-size: 11px; }
+    .nav-label { margin: 18px 10px 7px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .nav a {
+      display: flex; gap: 10px; align-items: center; padding: 8px 10px; margin: 2px 0;
+      color: var(--muted); border-radius: 9px; font-size: 13px; transition: .18s ease;
+    }
+    .nav a:hover, .nav a.active { color: var(--ink); background: var(--cyan-soft); text-decoration: none; }
+    .nav a.active { color: var(--teal); font-weight: 700; }
+    .nav-num { width: 18px; color: color-mix(in srgb, var(--muted) 70%, transparent); font: 10px var(--mono); }
+    .side-note { margin-top: 25px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: 11px; background: var(--paper-2); }
+    .main { width: 100%; min-width: 0; max-width: 100%; }
+
+    .hero {
+      min-height: 56vh;
+      display: grid;
+      align-content: center;
+      padding: clamp(44px, 6vw, 78px) clamp(24px, 7vw, 110px);
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.45), transparent),
+        repeating-linear-gradient(90deg, transparent 0 59px, rgba(25,59,77,.035) 60px),
+        repeating-linear-gradient(0deg, transparent 0 59px, rgba(25,59,77,.035) 60px);
+    }
+    .eyebrow { color: var(--teal); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .hero h1 span { color: var(--teal); }
+    .hero-copy { max-width: 780px; margin: 22px 0 30px; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 42px; padding: 0 16px; border: 1px solid var(--line); border-radius: 10px;
+      color: var(--ink); background: var(--paper); cursor: pointer; font-weight: 700;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); box-shadow: 0 7px 18px rgba(31,44,40,.08); }
+    .btn.primary { color: white; border-color: var(--navy); background: var(--navy); }
+    .hero-stats { display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 12px; max-width: 840px; margin-top: 30px; }
+    .stat { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,248,.78); }
+    .stat strong { display: block; color: var(--navy); font-size: 1.7rem; line-height: 1.1; }
+    .stat span { color: var(--muted); font-size: 11px; }
+    .snapshot-note { max-width: 840px; margin: 10px 0 0; color: var(--muted); font: 10px var(--mono); }
+
+    .content { max-width: 1220px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 64px) 100px; }
+    .section { scroll-margin-top: 24px; padding: 68px 0 12px; }
+    .section-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .65fr); gap: 30px; margin-bottom: 28px; align-items: end; }
+    .section-kicker { display: block; margin-bottom: 7px; color: var(--amber); font: 700 11px var(--mono); letter-spacing: .12em; }
+    .section-intro { color: var(--muted); }
+
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: 0 5px 18px rgba(31,44,40,.035); }
+    .card > :first-child { margin-top: 0; }
+    .card > :last-child { margin-bottom: 0; }
+    .card.teal { border-top: 4px solid var(--teal); }
+    .card.amber { border-top: 4px solid var(--amber); }
+    .card.red { border-top: 4px solid var(--red); }
+    .card.blue { border-top: 4px solid var(--blue); }
+    .card.purple { border-top: 4px solid var(--purple); }
+    .tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; background: var(--paper-2); color: var(--muted); font: 700 10px var(--mono); }
+    .tag.control { color: var(--blue); background: var(--blue-soft); }
+    .tag.decision { color: var(--purple); background: var(--purple-soft); }
+    .tag.side-effect { color: var(--red); background: var(--red-soft); }
+    .tag.data { color: var(--teal); background: var(--cyan-soft); }
+    .callout { padding: 18px 20px; border-left: 4px solid var(--teal); border-radius: 0 12px 12px 0; background: var(--cyan-soft); }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    .architecture-stack { display: grid; gap: 12px; }
+    .layer { display: grid; grid-template-columns: 150px 1fr; gap: 15px; align-items: stretch; }
+    .layer-title { display: grid; place-items: center; padding: 15px; border-radius: 14px; color: white; background: var(--navy); text-align: center; font-weight: 800; }
+    .layer-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
+    .component { padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+    .component strong { display: block; }
+    .component small { color: var(--muted); }
+    .layer:nth-child(2) .layer-title { background: var(--teal); }
+    .layer:nth-child(3) .layer-title { background: var(--blue); }
+    .layer:nth-child(4) .layer-title { background: var(--purple); }
+    .layer:nth-child(5) .layer-title { background: var(--amber); }
+    .path-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .path-btn { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--paper); cursor: pointer; }
+    .path-btn.active { color: white; border-color: var(--teal); background: var(--teal); }
+    .flow-board { overflow-x: auto; padding: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+    .flow-row { display: flex; min-width: 1010px; align-items: center; gap: 8px; margin: 12px 0; }
+    .flow-label { flex: 0 0 105px; color: var(--muted); font: 700 11px var(--mono); text-align: right; }
+    .flow-node { position: relative; flex: 1 0 112px; min-height: 74px; padding: 12px; border: 2px solid var(--line); border-radius: 13px; background: var(--paper-2); transition: .2s ease; }
+    .flow-node strong { display: block; font: 700 12px var(--mono); }
+    .flow-node small { display: block; margin-top: 4px; color: var(--muted); line-height: 1.35; }
+    .flow-arrow { flex: 0 0 24px; color: var(--line); font-size: 20px; text-align: center; }
+    .flow-node.on { border-color: var(--teal); background: var(--cyan-soft); box-shadow: 0 0 0 3px rgba(19,124,114,.08); }
+    .flow-node.warn.on { border-color: var(--amber); background: var(--amber-soft); }
+    .flow-node.danger.on { border-color: var(--red); background: var(--red-soft); }
+    .flow-node.off { opacity: .24; filter: grayscale(1); }
+    .branch-note { min-width: 1010px; padding-left: 113px; color: var(--muted); font-size: 12px; }
+
+    .truth-compare { display: grid; grid-template-columns: 1fr 60px 1fr; align-items: stretch; gap: 12px; }
+    .truth-column { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+    .truth-arrow { display: grid; place-items: center; color: var(--amber); font-size: 30px; }
+    .mini-flow { display: grid; gap: 7px; margin-top: 14px; }
+    .mini-step { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper-2); font: 12px var(--mono); }
+    .mini-step.em { border-color: var(--teal); background: var(--cyan-soft); }
+    .mini-step.effect { border-color: var(--red); background: var(--red-soft); }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { position: sticky; top: 0; color: var(--navy); background: var(--paper-2); font-size: 11px; letter-spacing: .04em; }
+    td { font-size: 13px; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: color-mix(in srgb, var(--cyan-soft) 38%, transparent); }
+    td:first-child { font-family: var(--mono); font-weight: 700; }
+
+    .state-map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: stretch; }
+    .state-group { padding: 17px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+    .state-group h3 { font-size: 13px; }
+    .state-group ul { margin: 8px 0 0; padding: 0; list-style: none; }
+    .state-group li { margin: 5px 0; color: var(--muted); font: 11px var(--mono); overflow-wrap: anywhere; }
+    .state-group:nth-child(1) { border-top: 4px solid var(--navy); }
+    .state-group:nth-child(2) { border-top: 4px solid var(--purple); }
+    .state-group:nth-child(3) { border-top: 4px solid var(--teal); }
+    .state-group:nth-child(4) { border-top: 4px solid var(--blue); }
+    .state-group:nth-child(5) { border-top: 4px solid var(--amber); }
+    .state-group:nth-child(6) { border-top: 4px solid var(--red); }
+    .timeline { position: relative; margin: 24px 0 0; padding-left: 27px; }
+    .timeline::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+    .timeline-item { position: relative; margin: 0 0 16px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+    .timeline-item::before { content: ""; position: absolute; left: -26px; top: 20px; width: 11px; height: 11px; border: 3px solid var(--bg); border-radius: 50%; background: var(--teal); }
+    .timeline-item strong { font-family: var(--mono); }
+    .timeline-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .decision-pipeline { display: grid; grid-template-columns: 1fr 34px 1fr 34px 1fr; gap: 8px; align-items: stretch; }
+    .decision-box { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+    .decision-box h3 { color: var(--purple); }
+    .decision-arrow { display: grid; place-items: center; color: var(--line); font-size: 25px; }
+    .formula { padding: 11px 13px; border-radius: 9px; background: #16201e; color: #d9ece6; font: 12px/1.55 var(--mono); }
+    .authority { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+    .authority > div { padding: 16px; border-radius: 13px; }
+    .authority .signal { background: var(--purple-soft); }
+    .authority .policy { background: var(--blue-soft); }
+    .authority .effect { background: var(--red-soft); }
+
+    .tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+    .tab { padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--paper); cursor: pointer; }
+    .tab.active { color: white; border-color: var(--navy); background: var(--navy); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: appear .22s ease; }
+    @keyframes appear { from { opacity: .2; transform: translateY(4px); } }
+    .sequence { display: grid; gap: 8px; counter-reset: seq; }
+    .seq-step { display: grid; grid-template-columns: 34px 150px 1fr; gap: 12px; align-items: start; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+    .seq-step::before { counter-increment: seq; content: counter(seq); display: grid; place-items: center; width: 27px; height: 27px; color: white; border-radius: 50%; background: var(--teal); font: 700 11px var(--mono); }
+    .seq-actor { color: var(--navy); font: 700 12px var(--mono); }
+    .seq-message { font-size: 13px; }
+    .seq-message small { display: block; color: var(--muted); }
+
+    .db-map { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .db-table { position: relative; min-height: 170px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+    .db-table h3 { font: 700 12px var(--mono); color: var(--blue); }
+    .db-table p { color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .db-table .key { color: var(--teal); font: 10px var(--mono); }
+    .db-rel { grid-column: 1 / -1; padding: 10px; color: var(--muted); border-radius: 10px; background: var(--paper-2); text-align: center; font: 11px var(--mono); }
+    .status-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .status { padding: 7px 11px; border-radius: 999px; color: var(--navy); background: var(--blue-soft); font: 11px var(--mono); }
+    .status-arrow { color: var(--muted); }
+    .status.current { color: var(--teal); background: var(--cyan-soft); }
+    .status.stop { color: var(--red); background: var(--red-soft); }
+
+    .risk-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; }
+    .risk { display: grid; grid-template-columns: 85px 1fr; gap: 14px; padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+    .risk-level { align-self: start; padding: 5px 8px; border-radius: 999px; text-align: center; font: 700 10px var(--mono); }
+    .risk-level.good { color: var(--green); background: var(--cyan-soft); }
+    .risk-level.watch { color: var(--amber); background: var(--amber-soft); }
+    .risk-level.gap { color: var(--red); background: var(--red-soft); }
+    .risk h3 { margin-bottom: 4px; }
+    .risk p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .ops-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .ops-step { position: relative; padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+    .ops-step::after { content: "→"; position: absolute; right: -10px; top: 42%; z-index: 2; color: var(--amber); font-weight: 900; }
+    .ops-step:last-child::after { display: none; }
+    .ops-step strong { display: block; color: var(--navy); font: 700 12px var(--mono); }
+    .ops-step small { display: block; margin-top: 7px; color: var(--muted); line-height: 1.5; }
+    .endpoint-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .endpoint { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper-2); }
+    .endpoint code { display: inline-block; margin-bottom: 6px; color: var(--teal); }
+
+    .file-tree { padding: 19px; border: 1px solid var(--line); border-radius: var(--radius); background: #16201e; color: #dbe8e3; font: 12px/1.8 var(--mono); white-space: pre-wrap; }
+    .file-tree .hot { color: #78d9c7; }
+    .reading-list { display: grid; gap: 10px; }
+    .reading-item { display: grid; grid-template-columns: 37px 1fr auto; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+    .reading-item::before { content: attr(data-lens); display: grid; place-items: center; width: 30px; height: 30px; color: white; border-radius: 9px; background: var(--navy); font: 800 10px var(--mono); }
+    .reading-item[data-lens="W"]::before { background: var(--teal); }
+    .reading-item[data-lens="B"]::before { background: var(--purple); }
+    .reading-item[data-lens="C"]::before { background: var(--blue); }
+    .reading-item[data-lens="F"]::before { background: var(--amber); }
+    .reading-item strong { display: block; font-family: var(--mono); font-size: 12px; }
+    .reading-item small { color: var(--muted); }
+    .copy-btn { padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: var(--paper-2); cursor: pointer; font-size: 11px; }
+
+    /* Core overview and full architecture reading modes. */
+    .view-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 18px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper-2); }
+    .view-btn { padding: 7px 8px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; font-size: 11px; font-weight: 800; }
+    .view-btn.active { color: white; background: var(--navy); box-shadow: 0 5px 13px rgba(25,59,77,.18); }
+    .guided-nav, .reference-nav { display: none; }
+    body.guided-mode .guided-nav, body.reference-mode .reference-nav { display: block; }
+    body.guided-mode .reference-content { display: none; }
+    body.reference-mode .guided-content { display: none; }
+    body.guided-mode .hero-stats { display: none; }
+    body.guided-mode .snapshot-note { display: none; }
+
+    .mode-banner { display: flex; gap: 14px; align-items: center; justify-content: space-between; margin: 28px 0 0; padding: 17px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+    .mode-banner p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+
+    .learning-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); box-shadow: var(--shadow); }
+    .learning-top { padding: 24px 26px 20px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg, var(--cyan-soft), var(--paper)); }
+    .learning-topline { display: flex; gap: 18px; align-items: end; justify-content: space-between; }
+    .learning-topline p { max-width: 610px; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .learning-counter { flex: 0 0 auto; color: var(--teal); font: 800 13px var(--mono); }
+    .learning-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 16px; }
+    .learning-step { min-width: 0; padding: 9px 7px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: rgba(255,253,248,.78); cursor: pointer; font-size: 11px; line-height: 1.35; }
+    .learning-step span { display: block; color: color-mix(in srgb, var(--muted) 75%, transparent); font: 800 9px var(--mono); }
+    .learning-step.active { color: white; border-color: var(--teal); background: var(--teal); }
+    .learning-step.active span { color: rgba(255,255,255,.72); }
+
+    .learning-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); min-height: 570px; }
+    .progressive-map { padding: 26px; border-right: 1px solid var(--line); background: var(--paper-2); }
+    .map-title { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    .map-title strong { color: var(--navy); }
+    .map-title span { color: var(--muted); font-size: 11px; }
+    .progressive-lane { display: grid; grid-template-columns: 112px 1fr; gap: 12px; align-items: stretch; margin: 9px 0; }
+    .progressive-lane.focused { padding: 7px; margin-left: -7px; margin-right: -7px; border: 2px solid var(--teal); border-radius: 16px; background: color-mix(in srgb, var(--cyan-soft) 45%, transparent); }
+    .progressive-lane:not(.focused) { opacity: .76; }
+    .lane-name { display: grid; place-items: center; min-height: 76px; padding: 10px; border-radius: 12px; color: white; background: var(--navy); text-align: center; font-size: 12px; font-weight: 800; }
+    .progressive-lane[data-stage="2"] .lane-name { background: var(--teal); }
+    .progressive-lane[data-stage="3"] { margin-bottom: 18px; padding: 10px; border: 1px solid color-mix(in srgb, var(--purple) 50%, var(--line)); border-radius: 16px; background: var(--purple-soft); }
+    .progressive-lane[data-stage="3"] .lane-name { background: var(--purple); }
+    .progressive-lane[data-stage="3"].focused { border-color: var(--purple); background: var(--purple-soft); }
+    .progressive-lane[data-stage="3"] .lane-nodes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .lane-nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+    .progressive-node { position: relative; min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); transition: opacity .2s ease, transform .2s ease; }
+    .progressive-node.selected { border-color: var(--teal); background: var(--cyan-soft); box-shadow: 0 0 0 3px rgba(19,124,114,.07); }
+    .progressive-node.new { border-color: var(--teal); background: var(--cyan-soft); animation: revealNode .35s ease both; }
+    .progressive-node[data-stage="3"].selected { border-color: var(--purple); background: var(--purple-soft); box-shadow: 0 0 0 3px rgba(115,86,166,.08); }
+    .progressive-node strong { display: block; color: var(--navy); font-size: 12px; }
+    .progressive-node small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .node-stage { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: var(--muted); background: var(--paper-2); font: 800 9px var(--mono); }
+    @keyframes revealNode { from { opacity: .2; transform: translateY(5px); } }
+
+    .learning-notes { display: flex; min-width: 0; flex-direction: column; padding: 27px; }
+    .guided-copy { display: none; animation: appear .22s ease; }
+    .guided-copy.active { display: block; }
+    .lesson-label { display: inline-flex; padding: 4px 9px; border-radius: 999px; color: var(--teal); background: var(--cyan-soft); font: 800 10px var(--mono); }
+    .guided-copy h3 { margin-top: 14px; font-size: 1.45rem; }
+    .lesson-one { padding: 15px 16px; border-left: 4px solid var(--teal); border-radius: 0 12px 12px 0; background: var(--cyan-soft); }
+    .lesson-one strong { display: block; margin-bottom: 3px; }
+    .lesson-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 18px 0; }
+    .lesson-flow span { padding: 6px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); background: var(--paper-2); font: 700 10px var(--mono); }
+    .lesson-flow i { color: var(--amber); font-style: normal; }
+    .lesson-boundary { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 12px; }
+    .lesson-boundary strong { color: var(--amber); }
+    .lesson-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 17px; }
+    .lesson-detail { padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-2); }
+    .lesson-detail strong { display: block; color: var(--navy); font-size: 11px; }
+    .lesson-detail span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+
+    .mental-model { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+    .mental-card { padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+    .mental-card b { display: block; color: var(--navy); }
+    .mental-card span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .reference-gate { display: flex; gap: 18px; align-items: center; justify-content: space-between; margin-top: 22px; padding: 22px; border: 1px dashed var(--amber); border-radius: 16px; background: var(--amber-soft); }
+    .reference-gate p { margin: 4px 0 0; color: var(--muted); }
+
+    .triad-overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+    .triad-card { position: relative; padding: 21px; border: 1px solid var(--line); border-radius: 17px; background: var(--paper); }
+    .triad-card::before { content: attr(data-num); display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: 13px; border-radius: 9px; color: white; background: var(--navy); font: 800 11px var(--mono); }
+    .triad-card:nth-child(2)::before { background: var(--teal); }
+    .triad-card:nth-child(3)::before { background: var(--purple); }
+    .triad-card h3 { margin-bottom: 4px; }
+    .triad-card .question { color: var(--teal); font-weight: 800; }
+    .triad-card p { color: var(--muted); font-size: 12px; }
+    .triad-card code { display: inline-block; margin: 2px 2px 0 0; }
+    .source-overview { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .source-overview .triad-card:nth-child(4)::before { background: var(--blue); }
+    .source-overview .triad-card:nth-child(5)::before { background: var(--amber); }
+    .chapter-banner { padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: 0 5px 18px rgba(31,44,40,.035); }
+    .chapter-banner.intent { border-left: 7px solid var(--navy); }
+    .chapter-banner.workflow { border-left: 7px solid var(--teal); }
+    .chapter-banner.boundary { border-left: 7px solid var(--purple); }
+    .chapter-question { display: inline-flex; margin: 4px 0 15px; padding: 5px 10px; border-radius: 999px; color: var(--teal); background: var(--cyan-soft); font-weight: 800; }
+    .chapter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; margin-top: 15px; }
+    .chapter-item { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper-2); }
+    .chapter-item strong { display: block; color: var(--navy); font-size: 12px; }
+    .chapter-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .role-ribbon { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 16px; }
+    .role-ribbon span { padding: 5px 9px; border-radius: 999px; background: var(--paper-2); color: var(--muted); font: 700 10px var(--mono); }
+    .role-ribbon .primary { color: white; background: var(--teal); }
+    .reference-nav .nav-group + .nav-group { margin-top: 13px; }
+
+    .system-logic { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); }
+    .logic-flow { display: grid; grid-template-columns: 1fr 42px 1fr 42px 1fr; gap: 9px; align-items: stretch; }
+    .logic-card { min-height: 132px; padding: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper-2); }
+    .logic-card strong { display: block; color: var(--navy); font-size: 15px; }
+    .logic-card b { display: block; margin-top: 6px; color: var(--teal); font-size: 12px; }
+    .logic-card span { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .logic-arrow { display: grid; place-items: center; color: var(--amber); font-size: 25px; }
+    .boundary-band { margin-top: 13px; padding: 16px 18px; border: 2px solid color-mix(in srgb, var(--purple) 58%, var(--line)); border-radius: 15px; background: var(--purple-soft); }
+    .boundary-band strong { color: var(--purple); }
+    .boundary-band span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .foundation-band { margin-top: 13px; padding: 17px 18px; border-radius: 15px; background: #16201e; color: #eaf2ee; }
+    .foundation-band > strong { display: block; margin-bottom: 10px; color: #78d9c7; }
+    .foundation-items { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .foundation-item { padding: 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 10px; background: rgba(255,255,255,.04); }
+    .foundation-item b { display: block; font: 700 11px var(--mono); }
+    .foundation-item span { display: block; margin-top: 4px; color: #aebdb7; font-size: 10px; }
+    .reading-principle { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .reading-principle div { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper-2); }
+    .reading-principle strong { display: block; color: var(--navy); font-size: 12px; }
+    .reading-principle span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+
+    details { border: 1px solid var(--line); border-radius: 13px; background: var(--paper); }
+    details + details { margin-top: 10px; }
+    summary { padding: 14px 17px; cursor: pointer; font-weight: 700; }
+    details > div { padding: 0 17px 16px; color: var(--muted); }
+    .exercise { padding: 18px; border: 1px dashed var(--teal); border-radius: 15px; background: color-mix(in srgb, var(--cyan-soft) 62%, transparent); }
+    .exercise strong { color: var(--teal); }
+    footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 1000px) {
+      .layout { width: 100%; max-width: 100%; min-width: 0; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+      .sidebar { position: sticky; display: grid; grid-template-columns: 214px minmax(0, 1fr); align-items: center; gap: 10px; width: 100%; max-width: 100%; min-width: 0; height: auto; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: hidden; }
+      .brand, .nav-label, .side-note { display: none; }
+      .view-switch { display: grid; margin: 0; }
+      .guided-nav, .reference-nav { min-width: 0; overflow-x: auto; }
+      body.reference-mode .reference-nav { display: flex; gap: 8px; }
+      .reference-nav .nav-group { flex: 0 0 auto; margin: 0 !important; }
+      .nav { display: flex; width: max-content; min-width: 0; gap: 4px; }
+      .nav a { flex: 0 0 auto; }
+      .nav-num { display: none; }
+      .section { scroll-margin-top: 92px; }
+      .main { width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
+      .hero { min-height: 50vh; }
+      .section-head { grid-template-columns: 1fr; gap: 8px; }
+      .grid.four, .state-map { grid-template-columns: repeat(2, 1fr); }
+      .source-overview { grid-template-columns: repeat(2, 1fr); }
+      .db-map { grid-template-columns: repeat(3, 1fr); }
+      .learning-body { grid-template-columns: 1fr; }
+      .progressive-map { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+    @media (max-width: 720px) {
+      .sidebar { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 12px; }
+      .view-switch { max-width: 360px; }
+      .section { scroll-margin-top: 125px; }
+      .hero { width: 100%; max-width: 100%; min-width: 0; overflow: hidden; padding-left: 20px; padding-right: 20px; }
+      .content { width: 100%; max-width: 100%; min-width: 0; padding-left: 20px; padding-right: 20px; }
+      .hero > *, .hero-copy, .eyebrow { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+      .hero-actions { width: 100%; }
+      .hero-actions .btn { flex: 1 1 100%; width: 100%; min-width: 0; }
+      .content { width: 100%; max-width: 100%; overflow: hidden; }
+      .hero-stats, .grid.two, .grid.three, .grid.four, .risk-grid, .authority, .state-map, .ops-grid, .endpoint-grid { grid-template-columns: 1fr; }
+      .ops-step::after { content: "↓"; right: 50%; top: auto; bottom: -15px; }
+      .layer { grid-template-columns: 1fr; }
+      .layer-title { place-items: start; }
+      .truth-compare { grid-template-columns: 1fr; }
+      .truth-arrow { transform: rotate(90deg); }
+      .decision-pipeline { grid-template-columns: 1fr; }
+      .decision-arrow { transform: rotate(90deg); }
+      .db-map { grid-template-columns: 1fr; }
+      .seq-step { grid-template-columns: 30px 1fr; }
+      .seq-message { grid-column: 2; }
+      .reading-item { grid-template-columns: 32px 1fr; }
+      .copy-btn { grid-column: 2; justify-self: start; }
+      .risk { grid-template-columns: 1fr; }
+      .learning-top { padding: 20px; }
+      .learning-topline { align-items: start; }
+      .learning-steps { display: flex; overflow-x: auto; padding-bottom: 4px; }
+      .learning-step { flex: 0 0 112px; }
+      .progressive-map, .learning-notes { padding: 20px; }
+      .progressive-lane { grid-template-columns: 1fr; }
+      .progressive-lane[data-stage="3"] .lane-nodes { grid-template-columns: 1fr; }
+      .lane-name { min-height: auto; place-items: start; }
+      .mental-model { grid-template-columns: 1fr; }
+      .triad-overview, .source-overview, .chapter-grid { grid-template-columns: 1fr; }
+      .logic-flow { grid-template-columns: 1fr; }
+      .logic-arrow { transform: rotate(90deg); }
+      .foundation-items, .reading-principle { grid-template-columns: 1fr; }
+      .mode-banner, .reference-gate { align-items: stretch; flex-direction: column; }
+    }
+    @media print {
+      .sidebar, .hero-actions, .path-toolbar, .tabs, .copy-btn, .view-switch { display: none !important; }
+      .layout { display: block; }
+      .hero { min-height: auto; padding: 30px 0; }
+      .content { max-width: none; padding: 0; }
+      .section { break-inside: avoid; padding-top: 34px; }
+      .tab-panel { display: block !important; margin-bottom: 18px; }
+      body { background: white; }
+      .card, .flow-board, .table-wrap { box-shadow: none; }
+      body .guided-content { display: none !important; }
+      body .reference-content { display: block !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body class="guided-mode">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">EA</div>
+        <div><strong>Email Agent</strong><span>Architecture Study Map</span></div>
+      </div>
+      <div class="view-switch" aria-label="阅读模式">
+        <button class="view-btn active" data-view="guided" aria-pressed="true">核心总览</button>
+        <button class="view-btn" data-view="reference" aria-pressed="false">架构全图</button>
+      </div>
+      <div class="guided-nav">
+        <div class="nav-label">核心总览</div>
+        <nav class="nav" aria-label="核心总览目录">
+          <a href="#guided-start"><span class="nav-num">01</span>三要素地图</a>
+          <a href="#guided-model"><span class="nav-num">02</span>关系与口诀</a>
+        </nav>
+      </div>
+      <div class="reference-nav">
+        <div class="nav-label">总览</div>
+        <div class="nav-group"><nav class="nav" aria-label="总纲目录">
+          <a href="#start"><span class="nav-num">00</span>全景关系</a>
+        </nav></div>
+        <div class="nav-label">核心三要素</div>
+        <div class="nav-group"><nav class="nav" aria-label="三要素目录">
+          <a href="#intent-core"><span class="nav-num">I</span>意图识别</a>
+          <a href="#workflow-core"><span class="nav-num">W</span>工作流</a>
+          <a href="#boundary-core"><span class="nav-num">B</span>边界</a>
+        </nav></div>
+        <div class="nav-label">连接器</div>
+        <div class="nav-group"><nav class="nav" aria-label="连接器目录">
+          <a href="#workflow"><span class="nav-num">C1</span>业务路径</a>
+          <a href="#nodes"><span class="nav-num">C2</span>节点职责</a>
+          <a href="#decisions"><span class="nav-num">C3</span>判断闸门</a>
+          <a href="#state"><span class="nav-num">C4</span>共享状态</a>
+          <a href="#sequences"><span class="nav-num">C5</span>场景联动</a>
+        </nav></div>
+        <div class="nav-label">工程地基</div>
+        <div class="nav-group"><nav class="nav" aria-label="工程地基目录">
+          <a href="#persistence"><span class="nav-num">F1</span>持久化模型</a>
+          <a href="#truth"><span class="nav-num">F2</span>跨进程闭环</a>
+          <a href="#reliability"><span class="nav-num">F3</span>可靠性保护</a>
+          <a href="#operations"><span class="nav-num">F4</span>运行与观测</a>
+        </nav></div>
+        <div class="nav-label">实践</div>
+        <div class="nav-group"><nav class="nav" aria-label="实践目录">
+          <a href="#code"><span class="nav-num">P1</span>源码导航</a>
+          <a href="#exercises"><span class="nav-num">P2</span>练习题</a>
+        </nav></div>
+      </div>
+      <div class="side-note">基于 2026-09-21 工作区中的实际源码整理。单文件、无外部依赖，可直接离线打开。</div>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div class="eyebrow">识别什么 · 如何处理 · 何时停手</div>
+        <h1>单智能体<br><span>三要素</span></h1>
+        <p class="hero-copy">意图识别、工作流、边界。分别回答：用户想做什么？系统怎样完成？系统最多能做到哪里？</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#guided-start" data-mode-link="guided">先看核心总览 ↓</a>
+          <button class="btn" data-switch-view="reference">打开架构全图</button>
+          <button class="btn" onclick="window.print()">打印 / 导出 PDF</button>
+        </div>
+        <div class="hero-stats">
+          <div class="stat"><strong>10</strong><span>LangGraph 节点</span></div>
+          <div class="stat"><strong>4</strong><span>持久化 Job 类型</span></div>
+          <div class="stat"><strong>10</strong><span>业务数据表</span></div>
+          <div class="stat"><strong>39</strong><span>自动化测试</span></div>
+        </div>
+        <p class="snapshot-note">以上数字来自 2026-09-21 工作区源码快照；代码变化后应重新核对。</p>
+      </header>
+
+      <div class="content guided-content">
+        <section class="section" id="guided-start">
+          <div class="section-head">
+            <div><span class="section-kicker">CORE OVERVIEW</span><h2>单智能体三要素</h2></div>
+            <p class="section-intro">三个要素相互独立、相互连接，而且缺一不可。</p>
+          </div>
+
+          <div class="learning-shell">
+            <div class="learning-top">
+              <div class="learning-topline">
+                <div><strong id="lesson-heading">意图识别</strong><p id="lesson-subtitle">先弄清邮件在问什么，以及有没有风险。</p></div>
+                <div class="learning-counter">点击下方切换聚焦</div>
+              </div>
+              <div class="learning-steps" role="tablist" aria-label="架构核心视角">
+                <button class="learning-step active" id="lesson-tab-1" role="tab" aria-selected="true" aria-controls="lesson-panel-1" tabindex="0" data-stage-select="1"><span>要素一</span>意图识别</button>
+                <button class="learning-step" id="lesson-tab-2" role="tab" aria-selected="false" aria-controls="lesson-panel-2" tabindex="-1" data-stage-select="2"><span>要素二</span>工作流</button>
+                <button class="learning-step" id="lesson-tab-3" role="tab" aria-selected="false" aria-controls="lesson-panel-3" tabindex="-1" data-stage-select="3"><span>要素三</span>边界</button>
+              </div>
+            </div>
+
+            <div class="learning-body">
+              <div class="progressive-map">
+                <div class="map-title"><strong>一封邮件的三个核心视角</strong><span>点击上方聚焦；三者始终互相连接</span></div>
+
+                <div class="progressive-lane" data-stage="3">
+                  <div class="lane-name">边界 · 贯穿全程</div>
+                  <div class="lane-nodes">
+                    <div class="progressive-node" data-stage="3"><span class="node-stage">B</span><strong>风险与不确定性</strong><small>分诊时就可收缩自动化</small></div>
+                    <div class="progressive-node" data-stage="3"><span class="node-stage">B</span><strong>证据与回复校验</strong><small>不够可靠就澄清或交人</small></div>
+                    <div class="progressive-node" data-stage="3"><span class="node-stage">B</span><strong>人工授权</strong><small>批准后才产生外部副作用</small></div>
+                  </div>
+                </div>
+
+                <div class="progressive-lane" data-stage="1">
+                  <div class="lane-name">① 意图识别</div>
+                  <div class="lane-nodes">
+                    <div class="progressive-node" data-stage="1"><span class="node-stage">1</span><strong>读客户邮件</strong><small>先拿到问题本身</small></div>
+                    <div class="progressive-node" data-stage="1"><span class="node-stage">1</span><strong>识别意图与风险</strong><small>TypeSafe 提供分类信号</small></div>
+                    <div class="progressive-node" data-stage="1"><span class="node-stage">1</span><strong>选择方向</strong><small>常规处理，或直接交人工</small></div>
+                  </div>
+                </div>
+
+                <div class="progressive-lane" data-stage="2">
+                  <div class="lane-name">② 工作流</div>
+                  <div class="lane-nodes">
+                    <div class="progressive-node" data-stage="2"><span class="node-stage">2</span><strong>查知识</strong><small>找可能回答问题的资料</small></div>
+                    <div class="progressive-node" data-stage="2"><span class="node-stage">2</span><strong>筛证据</strong><small>不够可靠就转澄清</small></div>
+                    <div class="progressive-node" data-stage="2"><span class="node-stage">2</span><strong>写草稿并验证</strong><small>LangGraph 编排这些步骤</small></div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="learning-notes">
+                <article class="guided-copy active" id="lesson-panel-1" role="tabpanel" aria-labelledby="lesson-tab-1" data-lesson="1">
+                  <span class="lesson-label">要素一</span><h3>意图识别：这封邮件想干什么？</h3>
+                  <div class="lesson-one"><strong>先判断</strong>客户问什么？是常规问题，还是退款、安全、人工请求等需要谨慎处理的情况？</div>
+                  <div class="lesson-flow"><span>邮件</span><i>→</i><span>意图 / 风险</span><i>→</i><span>常规流程 or 人工</span></div>
+                  <p>TypeSafe 给出结构化分类；代码根据置信度和风险决定走哪条路。识别不可靠时，不硬猜，直接交人。</p>
+                  <div class="lesson-details">
+                    <div class="lesson-detail"><strong>它负责什么</strong><span>理解用户目标、主题、紧急程度、复杂度和风险。</span></div>
+                    <div class="lesson-detail"><strong>它不负责什么</strong><span>不负责检索全部资料，也不负责发送邮件。</span></div>
+                    <div class="lesson-detail"><strong>典型输入 / 输出</strong><span>输入邮件正文；输出 intent、confidence、needs_human 和风险分数。</span></div>
+                    <div class="lesson-detail"><strong>连接另外两要素</strong><span>输出决定工作流走哪条路径，也决定边界是否提前介入。</span></div>
+                  </div>
+                  <div class="lesson-boundary"><strong>只记一句：</strong>先分流，再处理。分类是路由依据，不是发邮件的许可。</div>
+                  <a class="btn" href="#intent-core" style="margin-top:16px">查看意图识别详解 →</a>
+                </article>
+
+                <article class="guided-copy" id="lesson-panel-2" role="tabpanel" aria-labelledby="lesson-tab-2" data-lesson="2">
+                  <span class="lesson-label">要素二</span><h3>工作流：接下来怎么走？</h3>
+                  <div class="lesson-one"><strong>常规路径</strong>查资料 → 筛证据 → 写草稿 → 验证草稿 → 等人工审核。</div>
+                  <div class="lesson-flow"><span>检索</span><i>→</i><span>证据</span><i>→</i><span>草稿</span><i>→</i><span>验证</span></div>
+                  <p>LangGraph 安排顺序和分支。证据不够就写澄清草稿，不编造答案；高风险邮件跳过这条自动草稿路径，直接交人工。</p>
+                  <div class="lesson-details">
+                    <div class="lesson-detail"><strong>它负责什么</strong><span>把一次处理拆成可观察、可恢复、可分支的步骤。</span></div>
+                    <div class="lesson-detail"><strong>它不负责什么</strong><span>不自己决定业务政策，也不因为模型说安全就自动越权。</span></div>
+                    <div class="lesson-detail"><strong>典型输入 / 输出</strong><span>输入意图和当前 State；输出下一节点、草稿、证据和状态变化。</span></div>
+                    <div class="lesson-detail"><strong>连接另外两要素</strong><span>读取意图识别结果来选路，并在边界设置的人工节点处暂停或结束。</span></div>
+                  </div>
+                  <div class="lesson-boundary"><strong>只记一句：</strong>根据意图走不同路径，流程不是“一条直线跑到底”。</div>
+                  <a class="btn" href="#workflow-core" style="margin-top:16px">查看工作流详解 →</a>
+                </article>
+
+                <article class="guided-copy" id="lesson-panel-3" role="tabpanel" aria-labelledby="lesson-tab-3" data-lesson="3">
+                  <span class="lesson-label">要素三</span><h3>边界：在哪里必须停？</h3>
+                  <div class="lesson-one"><strong>贯穿全程</strong>风险在分诊时就会改变路径，证据不足会收缩回答，模型写好草稿后也不能自行发送。</div>
+                  <div class="lesson-flow"><span>风险 / 证据 / 草稿</span><i>→</i><span>代码规则</span><i>→</i><span>人工授权</span><i>→</i><span>副作用</span></div>
+                  <p>即使回复验证显示安全，也只能辅助人判断。调用 Gmail、创建 Bug Issue 等外部副作用，必须经过代码规则与人的授权。</p>
+                  <div class="lesson-details">
+                    <div class="lesson-detail"><strong>它负责什么</strong><span>规定允许做什么、必须暂停什么、失败后能否继续。</span></div>
+                    <div class="lesson-detail"><strong>它不负责什么</strong><span>不替代意图识别，也不编排每个普通步骤。</span></div>
+                    <div class="lesson-detail"><strong>典型输入 / 输出</strong><span>输入风险、验证结果和人工决定；输出继续、拒绝、澄清或外部副作用。</span></div>
+                    <div class="lesson-detail"><strong>连接另外两要素</strong><span>风险信号可让工作流提前停下；批准结果让工作流从暂停点继续。</span></div>
+                  </div>
+                  <div class="lesson-boundary"><strong>只记一句：</strong>能判断 ≠ 有权执行；模型给信号，代码定规则，人类批副作用。</div>
+                  <a class="btn" href="#boundary-core" style="margin-top:16px">查看边界详解 →</a>
+                </article>
+
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="guided-model">
+          <div class="section-head">
+            <div><span class="section-kicker">RELATIONSHIP FIRST</span><h2>先把三者关系记对</h2></div>
+            <p class="section-intro">它们不是三个依次完成的阶段，而是信号、执行与约束的协作关系。</p>
+          </div>
+          <div class="mental-model">
+            <div class="mental-card"><b>① 意图识别给方向</b><span>把邮件变成结构化信号，告诉工作流该走哪条路。</span></div>
+            <div class="mental-card"><b>② 工作流推进任务</b><span>读取信号、更新 State，并在不同节点调用合适能力。</span></div>
+            <div class="mental-card"><b>③ 边界始终在场</b><span>风险、证据、权限和副作用规则会在流程中反复检查。</span></div>
+          </div>
+          <div class="callout warning" style="margin-top:16px"><strong>工程地基不等于第四要素</strong>Queue 记待办，Checkpoint 记进度，业务表记事实，Outbox 记发送。它们不理解邮件，却让三个要素在崩溃、重试和跨进程运行后仍然成立。</div>
+          <div class="reference-gate">
+            <div><strong>继续看真实系统</strong><p>架构全图分成核心三要素、连接器、工程地基和实践路线，不再把所有内容硬塞进三个栏目。</p></div>
+            <button class="btn primary" data-switch-view="reference">打开架构全图 →</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="content reference-content">
+        <div class="mode-banner">
+          <div><strong>架构全图</strong><p>先看核心三要素，再看它们怎样通过路径、判断和 State 连接，最后理解可靠运行所需的工程地基。</p></div>
+          <button class="btn" data-switch-view="guided">← 回到核心总览</button>
+        </div>
+        <section class="section" id="start">
+          <span id="overview" aria-hidden="true"></span>
+          <div class="section-head">
+            <div><span class="section-kicker">00 / SYSTEM LOGIC</span><h2>先看关系，不背组件</h2></div>
+            <p class="section-intro">意图识别给方向，工作流推进任务，边界贯穿全过程；工程地基负责让这套协作在真实世界里可靠运行。</p>
+          </div>
+          <div class="system-logic">
+            <div class="logic-flow">
+              <div class="logic-card"><strong>① 意图识别</strong><b>用户想做什么？</b><span>把邮件变成 intent、置信度、复杂度和风险等结构化信号。</span></div>
+              <div class="logic-arrow" aria-hidden="true">→</div>
+              <div class="logic-card"><strong>② 工作流</strong><b>系统接下来怎么做？</b><span>读取信号，选择检索、澄清、草稿、审核、拒绝或发送等路径。</span></div>
+              <div class="logic-arrow" aria-hidden="true">→</div>
+              <div class="logic-card"><strong>候选结果</strong><b>草稿或待执行动作</b><span>流程只能产出候选结果；能不能产生真实副作用仍由边界决定。</span></div>
+            </div>
+            <div class="boundary-band"><strong>③ 边界贯穿整条链路</strong><span>风险识别、证据充足度、回复验证、人工授权和幂等约束会在不同位置介入。边界不是最后一个步骤，而是持续生效的限制条件。</span></div>
+            <div class="foundation-band">
+              <strong>工程地基：不理解邮件，但保证三要素不会因崩溃和重试而失效</strong>
+              <div class="foundation-items">
+                <div class="foundation-item"><b>业务表</b><span>保存用户可见事实</span></div>
+                <div class="foundation-item"><b>Job Queue</b><span>记录什么工作待执行</span></div>
+                <div class="foundation-item"><b>Checkpoint</b><span>记录 Graph 从哪里继续</span></div>
+                <div class="foundation-item"><b>Outbox / Audit</b><span>保护并追踪外部副作用</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="reading-principle">
+            <div><strong>看组件</strong><span>它属于核心能力、连接器，还是工程地基？</span></div>
+            <div><strong>看数据</strong><span>它读取什么信号，又把什么写进共享 State 或数据库？</span></div>
+            <div><strong>看权限</strong><span>它只给建议，还是被允许产生真实外部副作用？</span></div>
+          </div>
+          <details style="margin-top:16px"><summary>换一个工程视角：五层组件全景</summary><div><p>三要素回答系统的认知与控制逻辑；五层视图回答组件部署在哪里。两种视角互补，不要混为一套分类。</p><div class="architecture-stack">
+            <div class="layer"><div class="layer-title">入口与人</div><div class="layer-items"><div class="component"><strong>Gmail 用户</strong><small>给测试邮件打上 email-agent 标签</small></div><div class="component"><strong>已登录审核员</strong><small>查看、编辑、批准或拒绝</small></div><div class="component"><strong>进程入口</strong><small>Review Web 与 Worker 分开启动</small></div></div></div>
+            <div class="layer"><div class="layer-title">应用边界</div><div class="layer-items"><div class="component"><strong>FastAPI Web</strong><small>认证、CSRF、审核 UI；动作只入队</small></div><div class="component"><strong>PostgreSQL Job Queue</strong><small>去重、抢占、租约、退避和死信</small></div><div class="component"><strong>Durable Worker</strong><small>执行 Gmail 同步、Graph 处理和审核恢复</small></div></div></div>
+            <div class="layer"><div class="layer-title">工作流编排</div><div class="layer-items"><div class="component"><strong>LangGraph StateGraph</strong><small>节点、动态跳转、interrupt</small></div><div class="component"><strong>EmailAgentState</strong><small>原始输入、中间决策和草稿</small></div><div class="component"><strong>PostgresSaver</strong><small>跨进程保存与恢复检查点</small></div></div></div>
+            <div class="layer"><div class="layer-title">智能能力</div><div class="layer-items"><div class="component"><strong>TypeSafe / Jev</strong><small>分类、证据评估、回复验证</small></div><div class="component"><strong>DeepSeek</strong><small>生成回复或澄清草稿</small></div><div class="component"><strong>百炼 Embedding</strong><small>向量检索</small></div></div></div>
+            <div class="layer"><div class="layer-title">数据与副作用</div><div class="layer-items"><div class="component"><strong>PostgreSQL + pgvector</strong><small>知识、业务、队列、Outbox、审计、checkpoint</small></div><div class="component"><strong>Gmail API</strong><small>读取、标记已读、发送回复</small></div><div class="component"><strong>GitHub Issues</strong><small>批准后创建脱敏 Issue</small></div></div></div>
+          </div></div></details>
+        </section>
+
+        <section class="section" id="intent-core">
+          <div class="chapter-banner intent">
+            <span class="section-kicker">ELEMENT 1 / INTENT</span>
+            <h2>要素一：意图识别</h2>
+            <div class="chapter-question">用户想做什么？当前有多大风险？</div>
+            <p>意图识别不是只给邮件贴一个标签，而是形成一份供工作流和边界共同使用的“局势判断”。它决定系统是否继续自动处理、选择哪类知识，以及是否需要立即交给人。</p>
+            <div class="chapter-grid">
+              <div class="chapter-item"><strong>输入</strong><span>邮件正文、标题和当前上下文。</span></div>
+              <div class="chapter-item"><strong>核心判断</strong><span>intent、urgency、complexity、置信度与三类风险。</span></div>
+              <div class="chapter-item"><strong>输出</strong><span>classification 与 needs_human，交给工作流选路。</span></div>
+              <div class="chapter-item"><strong>失败原则</strong><span>识别失败或不确定时 fail closed，直接转人工。</span></div>
+              <div class="chapter-item"><strong>连接工作流</strong><span>普通问题继续检索；高风险问题跳到 human_review。</span></div>
+              <div class="chapter-item"><strong>连接边界</strong><span>风险信号只触发限制，不授予任何外部执行权限。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="workflow-core">
+          <div class="chapter-banner workflow">
+            <span class="section-kicker">ELEMENT 2 / WORKFLOW</span>
+            <h2>要素二：工作流</h2>
+            <div class="chapter-question">系统怎样把事情一步步完成？</div>
+            <p>工作流把意图识别产生的方向变成业务步骤，并负责分支、状态传递、异常降级与人工中断。LangGraph 决定“下一步做什么”；Worker、Queue 和数据库属于让流程可靠运行的工程地基。</p>
+            <div class="chapter-grid">
+              <div class="chapter-item"><strong>输入</strong><span>邮件原始信息、classification 和当前 Graph State。</span></div>
+              <div class="chapter-item"><strong>常规路径</strong><span>检索 → 证据筛选 → 草稿 → 验证 → 人工审核。</span></div>
+              <div class="chapter-item"><strong>分支</strong><span>高风险直达人工；证据不足生成澄清；拒绝后结束。</span></div>
+              <div class="chapter-item"><strong>状态</strong><span>EmailAgentState 在节点之间传递输入、判断和结果。</span></div>
+              <div class="chapter-item"><strong>编排边界</strong><span>Graph 管业务步骤，不负责进程调度、任务抢占或服务托管。</span></div>
+              <div class="chapter-item"><strong>完成标准</strong><span>到达等待审核、发送成功或明确拒绝等可观察状态。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="boundary-core">
+          <div class="chapter-banner boundary">
+            <span class="section-kicker">ELEMENT 3 / BOUNDARY</span>
+            <h2>要素三：边界</h2>
+            <div class="chapter-question">系统最多能做到哪里？什么时候必须停？</div>
+            <p>边界把“有能力做”与“被允许做”分开。模型提供判断和草稿，Python 落实策略，人类授权真实副作用。幂等、审计和恢复机制负责在工程上维护这些边界，但不等于边界本身。</p>
+            <div class="chapter-grid">
+              <div class="chapter-item"><strong>能力边界</strong><span>模型不能直接调用 Gmail、GitHub 或承诺退款。</span></div>
+              <div class="chapter-item"><strong>信息边界</strong><span>证据不足不编造；提示注入和敏感信息触发限制。</span></div>
+              <div class="chapter-item"><strong>授权边界</strong><span>human_review 暂停；批准、编辑或拒绝由人决定。</span></div>
+              <div class="chapter-item"><strong>副作用边界</strong><span>发送与建 Issue 只在授权后发生，并使用幂等保护。</span></div>
+              <div class="chapter-item"><strong>决策边界</strong><span>模型分数只是信号；阈值、降级和路由由 Python 策略落实。</span></div>
+              <div class="chapter-item"><strong>失败原则</strong><span>不确定、证据不足或能力异常时收缩自动化，优先澄清或交人。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="workflow">
+          <div class="role-ribbon"><span class="primary">工作流展开：业务路径</span><span>读取意图信号</span><span>在边界节点暂停</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">CONNECTOR / BUSINESS FLOW</span><h2>一封邮件到底怎么走</h2></div>
+            <p class="section-intro">点击场景按钮，只高亮该场景经过的节点。图上半部分是 Graph 内部推理，下半部分是 Web 入队、Worker 执行和持久化恢复链路。</p>
+          </div>
+          <div class="path-toolbar" role="group" aria-label="流程场景">
+            <button class="path-btn active" data-path="normal">普通问题</button>
+            <button class="path-btn" data-path="clarify">证据不足</button>
+            <button class="path-btn" data-path="risk">高风险邮件</button>
+            <button class="path-btn" data-path="reject">人工拒绝</button>
+          </div>
+          <div class="flow-board">
+            <div class="flow-row">
+              <div class="flow-label">图内推理</div>
+              <div class="flow-node" data-paths="normal clarify risk reject"><strong>read_email</strong><small>记录处理消息</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node" data-paths="normal clarify risk reject"><strong>triage_email</strong><small>分类与风险路由</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node" data-paths="normal clarify reject"><strong>search_documentation</strong><small>召回 8 条候选</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node" data-paths="normal clarify reject"><strong>evaluate_evidence</strong><small>筛选最多 3 条</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node" data-paths="normal reject"><strong>draft_response</strong><small>有依据的回复</small></div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-label">分支 / 汇合</div>
+              <div class="flow-node warn" data-paths="clarify"><strong>draft_clarification</strong><small>信息不足时不猜测</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node" data-paths="normal clarify reject"><strong>validate_response</strong><small>完整性与安全验证</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node warn" data-paths="normal clarify risk reject"><strong>human_review</strong><small>interrupt 暂停</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node danger" data-paths="normal clarify risk"><strong>send_reply</strong><small>批准后真实发送</small></div><div class="flow-arrow">/</div>
+              <div class="flow-node warn" data-paths="reject"><strong>record_rejection</strong><small>拒绝后审计落库</small></div>
+            </div>
+            <div class="branch-note">高风险路径：<code>triage_email → human_review</code>；批准后进入 <code>send_reply</code>，拒绝后进入 <code>record_rejection → END</code>。</div>
+            <div class="flow-row" style="margin-top:26px">
+              <div class="flow-label">应用层实线</div>
+              <div class="flow-node on"><strong>Web enqueue</strong><small>同步/审核请求立即入队</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node on"><strong>Worker claim</strong><small>SKIP LOCKED + 运行租约</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node on"><strong>process_email</strong><small>运行 Graph 到 interrupt</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node on"><strong>review job</strong><small>批准或拒绝决定入队</small></div><div class="flow-arrow">→</div>
+              <div class="flow-node danger on"><strong>resume + outbox</strong><small>同 thread_id 恢复并持久化副作用</small></div>
+            </div>
+          </div>
+          <div class="grid two" style="margin-top:16px">
+            <div class="callout"><strong>为什么多数边不在 graph.py？</strong>入口边和两个终止节点的边是静态的，主要业务路由由节点返回的 <code>Command(update=..., goto=...)</code> 决定。</div>
+            <div class="callout warning"><strong>恢复的关键是什么？</strong><code>agent_tasks.langgraph_thread_id</code> 是唯一恢复键。Web 只保存审核决定；Worker 读取固定 ID，并用 <code>Command(resume=...)</code> 找回同一个 interrupt。若副作用节点曾失败，则用 <code>stream(None)</code> 从失败节点续跑。</div>
+          </div>
+        </section>
+
+        <section class="section" id="nodes">
+          <div class="role-ribbon"><span class="primary">工作流展开：节点职责</span><span>节点是业务编排的最小职责单元</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">CONNECTOR / NODE ANATOMY</span><h2>节点职责与路由表</h2></div>
+            <p class="section-intro">读节点时固定问五件事：读什么、调用谁、写什么、去哪里、失败怎么办。</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>节点</th><th>读取 State</th><th>核心动作</th><th>写入 State</th><th>下一站</th><th>失败策略</th></tr></thead>
+              <tbody>
+                <tr><td>read_email</td><td>email_content</td><td>构造 HumanMessage 处理记录</td><td>messages</td><td>triage_email</td><td>无专用 handler</td></tr>
+                <tr><td>triage_email</td><td>email_content, email_subject</td><td>TypeSafe 一次回答 6 个原子问题</td><td>classification</td><td>search_documentation 或 human_review</td><td>失败关闭：构造 needs_human=True</td></tr>
+                <tr><td>search_documentation</td><td>email_content, classification.intent</td><td>Embedding + pgvector，按意图可选 category</td><td>search_results</td><td>evaluate_evidence</td><td>最多重试 3 次，耗尽后转澄清</td></tr>
+                <tr><td>evaluate_evidence</td><td>email_content, search_results</td><td>逐段判断相关、支持、注入；全局判断能否回答</td><td>evidence_evaluation, 精选 search_results</td><td>draft_response 或 draft_clarification</td><td>清空候选并转澄清</td></tr>
+                <tr><td>draft_response</td><td>email_content, search_results</td><td>DeepSeek 基于已批准证据生成</td><td>draft_response</td><td>validate_response</td><td>无专用 handler，冒泡到 service</td></tr>
+                <tr><td>draft_clarification</td><td>email_content</td><td>DeepSeek 生成澄清问题，避免编造</td><td>draft_response</td><td>validate_response</td><td>无专用 handler，冒泡到 service</td></tr>
+                <tr><td>validate_response</td><td>请求、证据、草稿</td><td>TypeSafe 检查覆盖度、依据、越权承诺、敏感数据和质量</td><td>response_validation</td><td>human_review</td><td>标记 unsafe 并仍转人工</td></tr>
+                <tr><td>human_review</td><td>分类、证据、草稿、验证</td><td>interrupt 暂停并等待 approved / edited_response</td><td>审核决定、审核员、最终草稿</td><td>send_reply 或 record_rejection</td><td>无草稿且批准时要求人工撰写</td></tr>
+                <tr><td>record_rejection</td><td>task_id、审核决定和原因</td><td>幂等记录人工拒绝</td><td>无</td><td>END</td><td>数据库异常使恢复请求失败</td></tr>
+                <tr><td>send_reply</td><td>task_id、分类、审核后草稿</td><td>可选创建脱敏 Issue；先准备 Outbox，再按稳定 RFC Message-ID 对账或发送 Gmail</td><td>provider_message_id、最终草稿、Issue URL</td><td>END</td><td>已有 sent 记录直接返回；sending 状态先查询 Gmail 已发送邮件</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" id="state">
+          <div class="role-ribbon"><span class="primary">连接器：共享 State</span><span>承载意图识别信号</span><span>承载工作流进度与边界决定</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">CONNECTOR / STATE MODEL</span><h2>共享状态连接三个要素</h2></div>
+            <p class="section-intro">节点不应把格式化后的 prompt 当状态传递。这里保存原始业务数据和结构化决策记录，prompt 在需要时现场构造。</p>
+          </div>
+          <div class="state-map">
+            <div class="state-group"><h3>邮件原始输入</h3><ul><li>email_content</li><li>sender_email</li><li>email_id</li><li>email_subject</li></ul></div>
+            <div class="state-group"><h3>关联上下文</h3><ul><li>provider_thread_id</li><li>task_id</li><li>messages</li></ul></div>
+            <div class="state-group"><h3>分诊决策</h3><ul><li>classification.intent</li><li>urgency / complexity</li><li>needs_human</li><li>risk scores</li></ul></div>
+            <div class="state-group"><h3>检索与证据</h3><ul><li>search_results</li><li>evidence_evaluation</li><li>selected_indices</li><li>answer_support</li></ul></div>
+            <div class="state-group"><h3>生成与验证</h3><ul><li>draft_response</li><li>response_validation</li><li>safe_to_send</li><li>review_reasons</li></ul></div>
+            <div class="state-group"><h3>审核与副作用</h3><ul><li>review_decision</li><li>reviewer_id / reason</li><li>provider_message_id</li><li>github_issue_url</li></ul></div>
+          </div>
+          <div class="timeline">
+            <div class="timeline-item"><strong>process_email Job</strong><span>Worker 从业务表重建 EmailRequest；service.run() 创建完整初始 state，中间字段先置为 None。</span></div>
+            <div class="timeline-item"><strong>triage_email</strong><span>第一次关键增量：写入 classification，并用 needs_human 决定是否继续自动化。</span></div>
+            <div class="timeline-item"><strong>evaluate_evidence</strong><span>将宽召回结果收窄为最多 3 条已接受证据，同时保留结构化评估记录。</span></div>
+            <div class="timeline-item"><strong>draft + validation</strong><span>草稿与安全评估分离；生成模型不能自己声明“我可以发送”。</span></div>
+            <div class="timeline-item"><strong>service snapshot</strong><span>从 app.get_state() 读取检查点，将 classification、evidence、validation、draft 投影到业务表，再由 Worker 标记 Gmail 已读并完成 Job。</span></div>
+          </div>
+          <div class="grid two" style="margin-top:16px">
+            <div class="card teal"><h3>图状态的职责</h3><p>服务一次 LangGraph 执行，支持节点间数据传递和 interrupt 检查点。当前由 PostgresSaver 保存，应用重启后仍可恢复。</p></div>
+            <div class="card blue"><h3>业务数据库的职责</h3><p>支持 Web 列表、审核、队列、Outbox、审计、去重和发送投影。即使 Web 或 Worker 重启，待执行工作和用户可见状态仍然存在。</p></div>
+          </div>
+        </section>
+
+        <section class="section" id="decisions">
+          <div class="role-ribbon"><span class="primary">连接器：三道判断闸门</span><span>分别服务于方向、质量和安全</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">CONNECTOR / DECISION GATES</span><h2>贯穿流程的三道判断闸门</h2></div>
+            <p class="section-intro">三次判断使用同一种结构化决策能力，但职责不同：分诊属于意图识别，证据门控服务工作流，回复验证守住边界。</p>
+          </div>
+          <div class="decision-pipeline">
+            <div class="decision-box">
+              <span class="tag decision">DECISION 1</span> <span class="tag control">意图识别</span><h3>邮件分诊</h3>
+              <p>一次请求得到 intent、urgency、complexity，以及退款、安全事件、人工请求三个风险分数。</p>
+              <div class="formula">needs_human = other<br>∨ intent_confidence &lt; 0.7<br>∨ complexity == specialist<br>∨ urgency == critical<br>∨ any_risk_score ≥ 0.7</div>
+            </div>
+            <div class="decision-arrow">→</div>
+            <div class="decision-box">
+              <span class="tag decision">DECISION 2</span> <span class="tag control">工作流质量</span><h3>证据门控</h3>
+              <p>每个 passage 判断 relevant、supports、injection；合格项按 0.4×相关性 + 0.6×支持度排序，最多取 3 条。</p>
+              <div class="formula">accepted = relevant ≥ .7<br>∧ supports ≥ .7<br>∧ injection &lt; .7<br><br>sufficient = selected ≠ ∅<br>∧ answer_supported ≥ .7</div>
+            </div>
+            <div class="decision-arrow">→</div>
+            <div class="decision-box">
+              <span class="tag decision">DECISION 3</span> <span class="tag control">边界安全</span><h3>回复验证</h3>
+              <p>检查是否回答问题、是否有依据、是否越权承诺、是否索取敏感信息，以及总体质量。</p>
+              <div class="formula">safe = addresses ≥ .7<br>∧ grounded ≥ .7<br>∧ commitment ≤ .3<br>∧ sensitive ≤ .3<br>∧ quality ≥ 2</div>
+            </div>
+          </div>
+          <div class="authority">
+            <div class="signal"><strong>TypeSafe：信号层</strong><p>输出概率、分数和结构化记录；不能发邮件、退款或建 Issue。</p></div>
+            <div class="policy"><strong>Python：策略层</strong><p>阈值计算、路由、重试、降级、脱敏、幂等键和状态约束。</p></div>
+            <div class="effect"><strong>人类：授权层</strong><p>当前任何回复都必须批准；Bug Issue 也只在批准动作后创建。</p></div>
+          </div>
+          <div class="callout danger" style="margin-top:16px"><strong>最重要的安全设计</strong>即使 <code>safe_to_send=True</code>，节点仍然无条件进入 <code>human_review</code>。安全评分目前是给审核员看的信号，不是自动发送开关。</div>
+        </section>
+
+        <section class="section" id="sequences">
+          <div class="role-ribbon"><span class="primary">连接器：端到端场景</span><span>同时观察意图、流程、边界与工程地基</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">CONNECTOR / SCENARIOS</span><h2>三要素在四种业务场景里怎样协作</h2></div>
+            <p class="section-intro">这里只比较会改变业务路径的情况；断网、服务不可用等技术故障统一放到工程地基中讨论。</p>
+          </div>
+          <div class="tabs" role="tablist" aria-label="端到端场景">
+            <button class="tab active" id="scenario-tab-normal" role="tab" aria-selected="true" aria-controls="seq-normal" tabindex="0" data-tab="seq-normal">普通问题</button>
+            <button class="tab" id="scenario-tab-risk" role="tab" aria-selected="false" aria-controls="seq-risk" tabindex="-1" data-tab="seq-risk">高风险直达人工</button>
+            <button class="tab" id="scenario-tab-bug" role="tab" aria-selected="false" aria-controls="seq-bug" tabindex="-1" data-tab="seq-bug">Bug 批准发送</button>
+            <button class="tab" id="scenario-tab-reject" role="tab" aria-selected="false" aria-controls="seq-reject" tabindex="-1" data-tab="seq-reject">人工拒绝</button>
+          </div>
+          <div class="tab-panel active" id="seq-normal" role="tabpanel" aria-labelledby="scenario-tab-normal">
+            <div class="sequence">
+              <div class="seq-step"><span class="seq-actor">Reviewer → Web</span><span class="seq-message">点击 Queue Gmail sync。Web 校验会话与 CSRF，只写入 <code>sync_gmail</code> Job。<small>POST /sync</small></span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Queue</span><span class="seq-message">使用 <code>FOR UPDATE SKIP LOCKED</code> 抢占 Job，并启动租约心跳。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Gmail</span><span class="seq-message">查询 label=email-agent 且未读的 message ID。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → PostgreSQL</span><span class="seq-message">幂等插入 inbound_emails / agent_tasks，并无条件补入去重的 <code>process_email</code> Job，修复入库后崩溃窗口。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Graph</span><span class="seq-message">读取固定 langgraph_thread_id，执行 Graph；失败重试时根据 checkpoint 从失败节点继续。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → TypeSafe</span><span class="seq-message">分诊通过，进入知识检索；证据评估选出可用片段。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → DeepSeek</span><span class="seq-message">只把客户请求和已接受证据放进草稿 prompt。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → TypeSafe</span><span class="seq-message">验证草稿后进入 interrupt。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → PostgreSQL</span><span class="seq-message">保存 waiting_for_review 和三份决策投影；完整 Graph checkpoint 已由 PostgresSaver 保存。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Gmail</span><span class="seq-message">只有成功到达待审核状态后，才移除入站邮件的 UNREAD 标签。</span></div>
+              <div class="seq-step"><span class="seq-actor">Reviewer → Queue</span><span class="seq-message">批准动作原子更新任务状态并写入 approve_reply Job；Worker 随后恢复 Graph。</span></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="seq-risk" role="tabpanel" aria-labelledby="scenario-tab-risk">
+            <div class="sequence">
+              <div class="seq-step"><span class="seq-actor">Graph → TypeSafe</span><span class="seq-message">检测到 critical、specialist、退款/安全/人工请求，或分类置信度不足。</span></div>
+              <div class="seq-step"><span class="seq-actor">triage → review</span><span class="seq-message">直接跳过检索、证据评估、生成和验证。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → interrupt</span><span class="seq-message">draft_response 仍为 None，暂停。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → DB</span><span class="seq-message">保存 waiting_for_review；Web 显示“自动化在分诊阶段停止”。</span></div>
+              <div class="seq-step"><span class="seq-actor">Reviewer</span><span class="seq-message">必须亲自撰写回复，不能批准空内容。</span></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="seq-bug" role="tabpanel" aria-labelledby="scenario-tab-bug">
+            <div class="sequence">
+              <div class="seq-step"><span class="seq-actor">Reviewer → Web</span><span class="seq-message">在审核页编辑或确认 Bug 回复并点击 Approve and send。</span></div>
+              <div class="seq-step"><span class="seq-actor">Web → Queue</span><span class="seq-message">在同一事务中把任务改为 sending，并写入唯一的 approve_reply Job。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Graph</span><span class="seq-message">使用相同 thread_id 提交 Command(resume=...)，human_review 从 interrupt 返回。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → DB</span><span class="seq-message">send_reply 节点先用 task:{id}:github-issue 查询是否已有成功工具记录。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → GitHub</span><span class="seq-message">使用分类摘要创建 Issue；邮箱、token 等常见标识先脱敏，原文不外发。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → Outbox</span><span class="seq-message">先写 task 级幂等键和稳定 RFC Message-ID；若状态为 sending，先搜索 Gmail 已发送邮件。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → Gmail</span><span class="seq-message">未找到已发送记录时，携带 threadId、回复 headers 和稳定 Message-ID 发送。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → DB</span><span class="seq-message">写 human_reviews、outbound_emails，把 agent_tasks 标记为 sent，然后 checkpoint 到 END。</span></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="seq-reject" role="tabpanel" aria-labelledby="scenario-tab-reject">
+            <div class="sequence">
+              <div class="seq-step"><span class="seq-actor">Reviewer → Web</span><span class="seq-message">输入拒绝原因并点击 Reject。</span></div>
+              <div class="seq-step"><span class="seq-actor">Web → Queue</span><span class="seq-message">原子写入 reject_reply Job，并把审核员手机号与拒绝原因保存在 payload。</span></div>
+              <div class="seq-step"><span class="seq-actor">Worker → Checkpoint</span><span class="seq-message">确认相同 thread_id 正暂停在 human_review，再提交 <code>Command(resume={approved: false, ...})</code>。</span></div>
+              <div class="seq-step"><span class="seq-actor">human_review</span><span class="seq-message">interrupt 返回拒绝决定，写入 review_decision、reviewer_id 和 review_reason。</span></div>
+              <div class="seq-step"><span class="seq-actor">record_rejection</span><span class="seq-message">使用任务行锁检查已有审核记录，写 human_reviews，并将 agent_tasks 标记为 rejected。</span></div>
+              <div class="seq-step"><span class="seq-actor">Graph → END</span><span class="seq-message">PostgresSaver 保存完成后的 checkpoint；不会调用 Gmail 或 GitHub。</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="persistence">
+          <div class="role-ribbon"><span class="primary">工程地基：持久化模型</span><span>Queue 记待办</span><span>Checkpoint 记进度</span><span>业务表记事实</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">FOUNDATION / PERSISTENCE</span><h2>工作流为什么不会在重启后失忆</h2></div>
+            <p class="section-intro">知识数据、业务任务、人工审核和外部副作用分别建模，这使审计和幂等更清晰。</p>
+          </div>
+          <h3 style="margin-bottom:12px">业务数据层</h3>
+          <div class="db-map">
+            <div class="db-table"><h3>knowledge_documents</h3><p>文档级元数据、分类、版本、来源、发布状态。</p><span class="key">UNIQUE slug</span></div>
+            <div class="db-table"><h3>knowledge_chunks</h3><p>文本块和 VECTOR(1024)，使用 HNSW + cosine 检索。</p><span class="key">FK document_id</span></div>
+            <div class="db-table"><h3>inbound_emails</h3><p>Gmail 原始邮件、线程和 header 元数据。</p><span class="key">UNIQUE provider,message_id</span></div>
+            <div class="db-table"><h3>agent_tasks</h3><p>任务状态、三类决策 JSON、草稿和错误。</p><span class="key">UNIQUE inbound_email_id</span></div>
+            <div class="db-table"><h3>human_reviews</h3><p>批准、编辑、拒绝；保存原草稿和最终文本。</p><span class="key">FK task_id</span></div>
+            <div class="db-table"><h3>outbound_emails</h3><p>Outbox：稳定正文、幂等键、RFC Message-ID、发送状态和 provider ID。</p><span class="key">UNIQUE task_id / idempotency_key</span></div>
+            <div class="db-table"><h3>tool_executions</h3><p>外部工具请求的幂等键、结果和状态。</p><span class="key">UNIQUE idempotency_key</span></div>
+            <div class="db-table"><h3>follow_up_jobs</h3><p>预留的后续任务调度表，当前主流程未使用。</p><span class="key">FK task_id</span></div>
+            <div class="db-table"><h3>job_queue</h3><p>四类持久化 Job、payload、租约、attempt、available_at 和死信状态。</p><span class="key">UNIQUE deduplication_key</span></div>
+            <div class="db-table"><h3>audit_events</h3><p>登录、审核、任务执行和人工重放的 actor、结果与 request_id。</p><span class="key">INDEX entity / created_at</span></div>
+            <div class="db-rel">knowledge_documents 1─N knowledge_chunks　│　inbound_emails 1─1 agent_tasks　│　agent_tasks 1─N job_queue / human_reviews / tool_executions　│　agent_tasks 1─1 outbound_emails　│　audit_events 保存跨边界操作轨迹</div>
+          </div>
+          <h3 style="margin:24px 0 12px">LangGraph Checkpoint 层</h3>
+          <div class="grid four">
+            <div class="card purple"><h3 class="mono">checkpoints</h3><p>每个 thread 的 checkpoint 元数据、父 checkpoint 和 channel versions。</p></div>
+            <div class="card purple"><h3 class="mono">checkpoint_blobs</h3><p>序列化后的 channel 值；保存完整 State 所需的大块数据。</p></div>
+            <div class="card purple"><h3 class="mono">checkpoint_writes</h3><p>节点执行期间的中间写入，用于恢复 pending writes 和 interrupt。</p></div>
+            <div class="card purple"><h3 class="mono">checkpoint_migrations</h3><p>PostgresSaver 自己的 schema 迁移版本，由 <code>setup()</code> 管理。</p></div>
+          </div>
+          <div class="callout" style="margin-top:16px"><strong>为什么需要两组表？</strong>业务表回答“用户看到的任务是什么状态”；Checkpoint 表回答“Graph 执行到了哪个节点、下次从哪里继续”。两者使用同一个 <code>langgraph_thread_id</code> 建立关联，但不能互相替代。</div>
+          <div class="grid two" style="margin-top:16px">
+            <div class="card">
+              <h3>业务任务生命周期</h3>
+              <div class="status-chain">
+                <span class="status">pending</span><span class="status-arrow">→</span>
+                <span class="status">processing</span><span class="status-arrow">→</span>
+                <span class="status current">waiting_for_review</span><span class="status-arrow">→</span>
+                <span class="status">sending / processing</span><span class="status-arrow">→</span>
+                <span class="status current">sent / rejected</span>
+                <span class="status-arrow">或</span><span class="status stop">failed</span>
+              </div>
+              <p style="color:var(--muted);font-size:12px">批准 Job 入队时任务进入 sending；拒绝 Job 入队时进入 processing。只有重试预算耗尽才进入 failed。</p>
+            </div>
+            <div class="card">
+              <h3>队列生命周期</h3>
+              <div class="status-chain">
+                <span class="status">queued</span><span class="status-arrow">→</span>
+                <span class="status">running</span><span class="status-arrow">→</span>
+                <span class="status current">succeeded</span>
+                <span class="status-arrow">或</span><span class="status">retry</span>
+                <span class="status-arrow">→</span><span class="status stop">dead</span>
+              </div>
+              <p style="color:var(--muted);font-size:12px">running 期间 Worker 刷新 locked_at；租约过期会回到 retry。dead 可从审核页手动重置为 queued。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="reliability">
+          <div class="role-ribbon"><span class="primary">工程地基：可靠性保护</span><span>让边界在失败和重试后仍然成立</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">FOUNDATION / RELIABILITY &amp; TRUST</span><h2>工程地基怎样维护安全与恢复</h2></div>
+            <p class="section-intro">“有重试”不等于“不会重复”，“有数据库”也不等于“工作流可以跨进程恢复”。要看副作用发生在记录之前还是之后。</p>
+          </div>
+          <div class="risk-grid">
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>入站邮件去重</h3><p><code>(provider, provider_message_id)</code> 唯一约束；重复同步不会创建第二个任务。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>GitHub Issue 幂等</h3><p>创建前查询 <code>task:{id}:github-issue</code>；成功后记录响应，下次直接复用。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>异常统一收口</h3><p>可恢复异常按预算重试；无法安全继续时收缩自动化，最终进入 dead 或人工处理，而不是为每种故障设计一条业务路径。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>模型权限隔离</h3><p>模型不直接调用 Gmail、GitHub 或退款动作；所有外发经过代码与人工。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>跨重启恢复</h3><p>PostgresSaver 保存 Graph checkpoint；Worker 使用相同 thread_id 恢复 interrupt 或失败节点。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>持久化队列与重试</h3><p>SKIP LOCKED 支持多 Worker；指数退避、租约心跳、失联回收、死信和人工重放形成闭环。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>审核入口保护</h3><p>手机号密码、签名 HttpOnly Cookie、8 小时会话、SameSite、CSRF 和安全响应头覆盖写操作。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>发送 Outbox 对账</h3><p>发送前持久化正文和稳定 Message-ID；重放时先查询 Gmail 已发送邮件，再决定补状态还是发送。</p></div></div>
+            <div class="risk"><span class="risk-level good">已实现</span><div><h3>可观测性</h3><p>JSON 日志携带 request/job/task ID；健康检查、Prometheus 文本指标和 audit_events 支持定位。</p></div></div>
+            <div class="risk"><span class="risk-level watch">需理解</span><div><h3>Gmail 已读时机</h3><p>只有 Graph 成功到达待审核状态后才移除 UNREAD；失败期间邮件保持未读，由 process_email Job 重试。</p></div></div>
+            <div class="risk"><span class="risk-level watch">残余窗口</span><div><h3>Gmail 最终一致性</h3><p>Gmail 没有原生幂等键；极端情况下已发送邮件尚未被搜索索引发现，仍无法数学上保证 exactly-once。</p></div></div>
+            <div class="risk"><span class="risk-level gap">公网缺口</span><div><h3>部署与身份体系</h3><p>当前仍绑定 127.0.0.1。公网 SLA 还需要 HTTPS、反向代理、集中身份、托管密钥、告警和备份演练。</p></div></div>
+          </div>
+        </section>
+
+        <section class="section" id="truth">
+          <div class="role-ribbon"><span class="primary">工程地基：跨进程闭环</span><span>恢复后仍必须遵守原有授权</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">FOUNDATION / IMPLEMENTATION TRUTH</span><h2>三要素怎样跨进程形成闭环</h2></div>
+            <p class="section-intro">现在 Web 不再执行长任务：它只负责认证、校验和入队；Worker 才恢复 LangGraph、访问外部系统并更新业务投影。</p>
+          </div>
+          <div class="truth-compare">
+            <div class="truth-column">
+              <span class="tag control">改造前</span><h3>检查点和 Web 审核断开</h3>
+              <div class="mini-flow">
+                <div class="mini-step">human_review_node</div>
+                <div class="mini-step em">MemorySaver + interrupt</div>
+                <div class="mini-step">Web 只保存业务草稿</div>
+                <div class="mini-step">approve_and_send 绕过 Graph</div>
+                <div class="mini-step effect">进程重启后无法恢复 interrupt</div>
+              </div>
+            </div>
+            <div class="truth-arrow">→</div>
+            <div class="truth-column">
+              <span class="tag side-effect">当前实现</span><h3>队列驱动的持久化闭环</h3>
+              <div class="mini-flow">
+                <div class="mini-step">Web 验证权限后只 enqueue</div>
+                <div class="mini-step">Worker claim + lease heartbeat</div>
+                <div class="mini-step">app.stream() 运行到 interrupt</div>
+                <div class="mini-step em">PostgresSaver 保存 checkpoint</div>
+                <div class="mini-step">审核决定再次进入 job_queue</div>
+                <div class="mini-step">Worker resume + Outbox 对账</div>
+                <div class="mini-step effect">send_reply：可恢复地发送 Gmail</div>
+              </div>
+            </div>
+          </div>
+          <div class="grid two" style="margin-top:16px">
+            <div class="card amber"><h3>三个恢复层次</h3><p>Job Queue 恢复“哪个工作要重做”；PostgresSaver 恢复“Graph 从哪个节点继续”；Outbox 恢复“外部发送是否已经发生”。三者缺一不可。</p></div>
+            <div class="card purple"><h3>三类 PostgreSQL 事实</h3><p>业务表保存用户可见状态；job_queue 保存执行状态；Checkpoint 表保存图内部状态。它们通过 task_id 和 langgraph_thread_id 建立关联。</p></div>
+          </div>
+          <div class="callout warning" style="margin-top:16px"><strong>仍要注意的三个实现边界</strong>
+            <ol>
+              <li>Web 和 Worker 是两个进程：只启动 Web 会产生 queued Job，但不会真正处理；生产环境必须由进程管理器同时托管二者。</li>
+              <li>批准/拒绝首次恢复使用 <code>Command(resume=...)</code>；节点执行失败后的 Job 重试必须用 <code>stream(None)</code>，否则会重复提交 interrupt 决定。</li>
+              <li>Outbox + RFC Message-ID 对账显著缩小 Gmail 重复窗口，但 Gmail 搜索索引延迟意味着它不是严格 exactly-once。</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="section" id="operations">
+          <div class="role-ribbon"><span class="primary">工程地基：运行与观测</span><span>身份、审计、告警与执行控制</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">FOUNDATION / OPERATIONS</span><h2>系统怎样被运行、观察和追责</h2></div>
+            <p class="section-intro">生产化不是再加一个模型节点，而是让每次请求都有执行归属、重试边界、审计记录和可报警信号。</p>
+          </div>
+          <div class="ops-grid">
+            <div class="ops-step"><strong>1 · ENQUEUE</strong><small>Web 事务性写入 job_queue；审核与邮件处理使用稳定去重键，同步请求则保留独立执行记录。</small></div>
+            <div class="ops-step"><strong>2 · CLAIM</strong><small>Worker 使用 SKIP LOCKED 抢占一条可运行 Job，写 locked_by / locked_at。</small></div>
+            <div class="ops-step"><strong>3 · EXECUTE</strong><small>Worker 调用 Gmail、Service 或 Graph；长任务期间后台线程续租。</small></div>
+            <div class="ops-step"><strong>4 · RETRY</strong><small>失败后指数退避；进程死亡则由租约回收；耗尽预算进入 dead。</small></div>
+            <div class="ops-step"><strong>5 · OBSERVE</strong><small>JSON 日志、audit_events、健康检查与指标共同回答“发生了什么”。</small></div>
+          </div>
+
+          <h3 style="margin:26px 0 12px">四类持久化 Job</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>job_type</th><th>创建者</th><th>核心职责</th><th>去重键</th><th>失败后的业务状态</th></tr></thead>
+              <tbody>
+                <tr><td>sync_gmail</td><td>审核 Web</td><td>扫描带标签未读邮件，为每封邮件补入 process_email</td><td>每次人工同步使用新的请求键</td><td>无 task；dead Job 单独显示</td></tr>
+                <tr><td>process_email</td><td>sync_gmail Worker</td><td>运行 Graph 到 human_review，保存投影后标记 Gmail 已读</td><td>task:{id}:process</td><td>重试时保持 processing，耗尽后 failed</td></tr>
+                <tr><td>approve_reply</td><td>审核 Web</td><td>恢复 interrupt，执行 GitHub / Outbox / Gmail 发送</td><td>task:{id}:review</td><td>重试时保持 sending，耗尽后 failed</td></tr>
+                <tr><td>reject_reply</td><td>审核 Web</td><td>恢复 interrupt，幂等记录拒绝并结束 Graph</td><td>task:{id}:review</td><td>重试时保持 processing，耗尽后 failed</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid three" style="margin-top:16px">
+            <div class="card amber"><h3>退避公式</h3><div class="formula">delay = min(900,<br>  5 × 2^(attempt-1))</div><p>默认从 5 秒开始，单次最长 15 分钟。每类 Job 可以配置 max_attempts。</p></div>
+            <div class="card teal"><h3>租约与回收</h3><p>Worker 以 <code>stale_seconds / 3</code> 的频率刷新租约；每个 Worker 至少每 60 秒扫描过期 running Job 并放回 retry。</p></div>
+            <div class="card red"><h3>死信处理</h3><p>dead 不会静默消失。任务型死信显示在邮件卡片；无 task 的同步死信独立显示，审核员可手动重放。</p></div>
+          </div>
+
+          <h3 style="margin:26px 0 12px">权限与请求边界</h3>
+          <div class="grid three">
+            <div class="card blue"><h3>身份</h3><p><code>REVIEW_PHONE</code> / <code>REVIEW_PASSWORD</code> 精确匹配。凭据来自被 Git 忽略的环境文件，不进入 HTML 或数据库。</p></div>
+            <div class="card blue"><h3>会话</h3><p>HMAC 签名 Cookie、HttpOnly、SameSite=Lax，8 小时过期；修改 Cookie 内容会使签名失效。</p></div>
+            <div class="card blue"><h3>写操作</h3><p>同步、批准、拒绝、退出和人工重放均要求与当前 session 绑定的 CSRF token；响应附带 CSP、DENY frame 等安全头。</p></div>
+          </div>
+
+          <h3 style="margin:26px 0 12px">健康与指标端点</h3>
+          <div class="endpoint-grid">
+            <div class="endpoint"><code>GET /health/live</code><p>只证明 Web 进程可响应；不访问外部依赖。</p></div>
+            <div class="endpoint"><code>GET /health/ready</code><p>执行 PostgreSQL 探针；数据库不可用时返回 503。</p></div>
+            <div class="endpoint"><code>GET /metrics</code><p>Prometheus 文本：Job/Task 各状态数量和最老 ready Job 年龄。</p></div>
+          </div>
+          <div class="grid two" style="margin-top:16px">
+            <div class="card purple"><h3>结构化日志字段</h3><p><code>timestamp</code>、<code>level</code>、<code>event</code>、<code>request_id</code>、<code>worker_id</code>、<code>job_id</code>、<code>task_id</code>、<code>attempt</code>、<code>duration_ms</code>。字段保持低基数，正文和密码不会写入日志。</p></div>
+            <div class="card purple"><h3>审计事件</h3><p><code>audit_events</code> 记录登录成功/失败、登出、同步入队、批准/拒绝入队、Job 成功和人工重放。审计写入失败会记日志，但不会让已完成副作用重新执行。</p></div>
+          </div>
+          <div class="callout" style="margin-top:16px"><strong>本地启动模型</strong><pre style="margin-top:10px">.venv/bin/email-agent-review
+.venv/bin/email-agent-worker</pre>Web 和 Worker 必须同时由进程管理器托管；增加 Worker 数量可以提高吞吐，SKIP LOCKED 会避免两个 Worker 同时拿到同一条 Job。</div>
+        </section>
+
+        <section class="section" id="code">
+          <div class="role-ribbon"><span class="primary">实践：按架构角色读代码</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">PRACTICE / SOURCE TOUR</span><h2>按五种视角读源码</h2></div>
+            <p class="section-intro">先读三个核心职责，再读连接它们的数据与判断，最后读保证跨进程可靠运行的工程地基。</p>
+          </div>
+          <div class="triad-overview source-overview" style="margin-bottom:16px">
+            <article class="triad-card" data-num="I"><h3>意图识别</h3><p><code>classification.py</code> 定义分诊规则，<code>decision_engine.py</code> 提供结构化判断适配。</p></article>
+            <article class="triad-card" data-num="W"><h3>工作流</h3><p><code>graph.py</code> 组装图，<code>nodes/</code> 实现业务步骤，<code>service.py</code> 推进与恢复 Graph。</p></article>
+            <article class="triad-card" data-num="B"><h3>边界</h3><p><code>human_review</code> 控制授权，<code>auth.py</code> 保护入口，Outbox 与幂等记录保护副作用。</p></article>
+            <article class="triad-card" data-num="C"><h3>连接器</h3><p><code>state.py</code> 与 <code>schemas.py</code> 承载契约；evidence 和 validation 构成跨要素判断闸门。</p></article>
+            <article class="triad-card" data-num="F"><h3>工程地基</h3><p><code>runtime.py</code>、<code>worker.py</code>、<code>storage.py</code>、SQL 与测试保障持久运行。</p></article>
+          </div>
+          <div class="grid two">
+            <div class="file-tree">agents/email-agent/
+├── src/email_agent/
+│   ├── <span class="hot">state.py</span>              # 图状态
+│   ├── <span class="hot">schemas.py</span>            # 结构化契约
+│   ├── <span class="hot">graph.py</span>              # 节点注册与编译
+│   ├── <span class="hot">runtime.py</span>            # Pool + PostgresSaver 生命周期
+│   ├── <span class="hot">worker.py</span>             # Job 抢占、心跳、重试与死信
+│   ├── auth.py               # 会话签名与 CSRF
+│   ├── observability.py      # JSON 日志
+│   ├── nodes/__init__.py     # 动态路由与节点实现
+│   ├── classification.py    # 分诊规则
+│   ├── evidence.py          # 证据门控
+│   ├── response_validation.py
+│   ├── decision_engine.py   # TypeSafe 适配层
+│   ├── prompts.py           # DeepSeek 模板
+│   ├── <span class="hot">service.py</span>            # 真实应用编排
+│   ├── <span class="hot">storage.py</span>            # Queue / Outbox / Audit / 业务表
+│   ├── <span class="hot">web.py</span>                # 认证审核 UI，只负责入队
+│   └── tools/
+│       ├── gmail.py
+│       ├── knowledge_base.py
+│       └── github_issues.py
+├── sql/001_schema.sql
+├── sql/004_production_runtime.sql
+└── tests/
+    ├── test_service_resume.py # interrupt / 失败节点恢复
+    ├── test_worker.py         # Worker 分发
+    └── test_web_auth.py       # 登录 / CSRF / 入队</div>
+            <div class="reading-list">
+              <div class="reading-item" data-lens="I"><div><strong>classification.py + decision_engine.py</strong><small>先看邮件怎样变成可路由的结构化信号。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/classification.py">复制路径</button></div>
+              <div class="reading-item" data-lens="C"><div><strong>schemas.py + state.py</strong><small>理解结构化契约，以及三个要素通过什么数据连接。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/state.py">复制路径</button></div>
+              <div class="reading-item" data-lens="W"><div><strong>graph.py</strong><small>看节点注册、静态边和 Graph 编译方式。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/graph.py">复制路径</button></div>
+              <div class="reading-item" data-lens="W"><div><strong>nodes/__init__.py</strong><small>顺着 Command.goto 还原不同信号怎样改变路径。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/nodes/__init__.py">复制路径</button></div>
+              <div class="reading-item" data-lens="C"><div><strong>evidence.py + response_validation.py</strong><small>理解质量闸门与安全闸门为什么不是“再次分类”。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/evidence.py">复制路径</button></div>
+              <div class="reading-item" data-lens="W"><div><strong>service.py</strong><small>重点看首次 interrupt 恢复和失败节点继续执行的区别。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/service.py">复制路径</button></div>
+              <div class="reading-item" data-lens="B"><div><strong>auth.py + web.py + human_review</strong><small>理解入口权限、人工授权和副作用许可怎样衔接。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/auth.py">复制路径</button></div>
+              <div class="reading-item" data-lens="F"><div><strong>runtime.py + worker.py</strong><small>理解资源生命周期、任务抢占、租约、退避与死信。</small></div><button class="copy-btn" data-copy="agents/email-agent/src/email_agent/runtime.py">复制路径</button></div>
+              <div class="reading-item" data-lens="F"><div><strong>storage.py + SQL migrations</strong><small>理解 Queue、Outbox、Audit、业务投影与事务边界。</small></div><button class="copy-btn" data-copy="agents/email-agent/sql/004_production_runtime.sql">复制路径</button></div>
+              <div class="reading-item" data-lens="F"><div><strong>reliability tests</strong><small>用恢复、权限、Worker 分发和 Gmail 对账测试校验理解。</small></div><button class="copy-btn" data-copy="agents/email-agent/tests/test_service_resume.py">复制路径</button></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="exercises">
+          <div class="role-ribbon"><span class="primary">实践：用三要素检验理解</span></div>
+          <div class="section-head">
+            <div><span class="section-kicker">PRACTICE / TRIAD REVIEW</span><h2>用三要素检验是否真正理解</h2></div>
+            <p class="section-intro">先自己回答，再展开参考方向。能够定位到代码位置，比背流程更重要。</p>
+          </div>
+          <details><summary>【连接器：证据闸门】为什么 evidence_sufficient=False 时不直接让 DeepSeek“尽量回答”？</summary><div>因为检索结果只是候选，可能不相关、缺少支持或包含提示注入。项目选择进入 draft_clarification，用不确定性换取可控性。</div></details>
+          <details><summary>【边界】safe_to_send=True 为什么仍然进入人工审核？</summary><div>当前阶段把验证结果当作审核辅助信号，而不是授权。副作用权限仍由人工掌握，避免模型评分直接触发真实外发。</div></details>
+          <details><summary>【意图识别 → 边界】如果 TypeSafe 服务在分诊时不可用，邮件会怎样？</summary><div>triage_error_handler 构造低置信度、specialist、needs_human=True 的分类记录，并直接进入 human_review，属于 fail closed。</div></details>
+          <details><summary>【工程地基】PostgresSaver 和 agent_tasks 表分别保存什么？</summary><div>PostgresSaver 保存 LangGraph 的完整 checkpoint、暂停节点和 channel writes；agent_tasks 保存 Web 列表需要的任务状态、草稿和决策投影。业务表不是 Graph checkpoint 的替代品。</div></details>
+          <details><summary>【工程地基 → 边界】Gmail 发送的重复风险现在怎样被缩小？</summary><div>send_reply 节点先写 Outbox，固定正文、幂等键和 RFC Message-ID。重试时若 Outbox 未完成，会先用 Message-ID 搜索 Gmail 已发送邮件：找到则补齐本地状态，找不到才发送。残余风险来自 Gmail 搜索索引的最终一致性。</div></details>
+          <details><summary>【工作流 → 工程地基】为什么 Job 重试不能总是再次发送 Command(resume=...)？</summary><div>Command(resume) 只适用于 checkpoint 正停在 human_review interrupt 的第一次恢复。如果 send_reply 已经开始但失败，checkpoint 的 next 是 send_reply；此时应使用 stream(None) 从失败节点继续，否则会错误地重复提交人工决定。</div></details>
+          <details><summary>【工程地基】job_queue 与 PostgresSaver 分别解决什么问题？</summary><div>job_queue 决定某项工作何时由哪个 Worker 执行，并提供退避、租约和死信；PostgresSaver 保存 Graph 内部 State、interrupt 和下一个节点。只有队列没有 checkpoint 会重跑整张图，只有 checkpoint 没有队列则无人可靠地触发恢复。</div></details>
+          <details><summary>【工程地基】Worker 为什么总是尝试 enqueue process_email？</summary><div>邮件入库与 Job 入队是两个事务。如果进程恰好在二者之间崩溃，下次同步会看到邮件已经存在。依靠 task:{id}:process 去重键，每次都尝试 enqueue 才能修复这个孤儿任务窗口。</div></details>
+          <div class="grid four" style="margin-top:18px">
+            <div class="exercise"><strong>练习 A：意图识别</strong><p>比较普通问题、退款请求和安全事件：classification 哪些字段不同，它们分别怎样改变路由？</p></div>
+            <div class="exercise"><strong>练习 B：工作流与连接器</strong><p>画出普通问题、证据不足和高风险直达人工三条路径，并标出 State 与判断闸门怎样改变下一步。</p></div>
+            <div class="exercise"><strong>练习 C：边界</strong><p>列出模型、Python 和审核员各自拥有的权限，并说明 Gmail 返回后崩溃时为何需要 Outbox。</p></div>
+            <div class="exercise"><strong>练习 D：工程地基</strong><p>分别说明业务表、Job Queue、Checkpoint 和 Outbox 在一次失败重试中保存了什么。</p></div>
+          </div>
+        </section>
+
+        <footer>
+          <p><strong>Email Agent Architecture Study Map</strong> · 根据本地源码生成 · 2026-09-21</p>
+          <p>建议每次修改系统后分别检查：意图识别的输出是否改变、工作流路径是否改变、边界与外部副作用是否仍然成立。</p>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const stageMeta = {
+      1: {
+        heading: '意图识别',
+        subtitle: '先弄清邮件在问什么，以及有没有风险。'
+      },
+      2: {
+        heading: '工作流',
+        subtitle: '根据分流结果，安排检索、证据、草稿和验证。'
+      },
+      3: {
+        heading: '边界',
+        subtitle: '始终分清谁能建议、谁定规则、谁有权产生真实副作用。'
+      }
+    };
+    const referenceOrder = [
+      'start',
+      'intent-core', 'workflow-core', 'boundary-core',
+      'workflow', 'nodes', 'decisions', 'state', 'sequences',
+      'persistence', 'truth', 'reliability', 'operations',
+      'code', 'exercises'
+    ];
+    const referenceContent = document.querySelector('.reference-content');
+    const referenceFooter = referenceContent.querySelector('footer');
+    referenceOrder.forEach(id => {
+      const section = document.getElementById(id);
+      if (section) referenceContent.insertBefore(section, referenceFooter);
+    });
+
+    let currentStage = 1;
+
+    function setLearningStage(stage, focusTab = false) {
+      currentStage = Math.max(1, Math.min(3, Number(stage)));
+      document.getElementById('lesson-heading').textContent = stageMeta[currentStage].heading;
+      document.getElementById('lesson-subtitle').textContent = stageMeta[currentStage].subtitle;
+
+      document.querySelectorAll('.learning-step').forEach(button => {
+        const buttonStage = Number(button.dataset.stageSelect);
+        const selected = buttonStage === currentStage;
+        button.classList.toggle('active', selected);
+        button.classList.remove('done');
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        if (selected && focusTab) button.focus();
+      });
+      document.querySelectorAll('.guided-copy').forEach(copy => {
+        const selected = Number(copy.dataset.lesson) === currentStage;
+        copy.classList.toggle('active', selected);
+        copy.setAttribute('aria-hidden', String(!selected));
+      });
+      document.querySelectorAll('.progressive-lane').forEach(lane => {
+        lane.classList.remove('future');
+        lane.classList.toggle('focused', Number(lane.dataset.stage) === currentStage);
+      });
+      document.querySelectorAll('.progressive-node').forEach(node => {
+        const nodeStage = Number(node.dataset.stage);
+        const selected = nodeStage === currentStage;
+        node.classList.remove('future');
+        node.classList.toggle('new', selected);
+        node.classList.toggle('selected', selected);
+      });
+    }
+
+    function setView(view) {
+      const guided = view === 'guided';
+      document.body.classList.toggle('guided-mode', guided);
+      document.body.classList.toggle('reference-mode', !guided);
+      document.querySelectorAll('.view-btn').forEach(button => {
+        const selected = button.dataset.view === view;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+    }
+
+    function viewForTarget(targetId) {
+      const target = document.getElementById(targetId);
+      if (target?.closest('.reference-content')) return 'reference';
+      if (target?.closest('.guided-content')) return 'guided';
+      return document.body.classList.contains('reference-mode') ? 'reference' : 'guided';
+    }
+
+    function scrollToTarget(targetId, behavior = 'smooth') {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) behavior = 'auto';
+      requestAnimationFrame(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior, block: 'start' });
+      });
+    }
+
+    function navigateTo(view, targetId, options = {}) {
+      const destination = targetId || (view === 'guided' ? 'guided-start' : 'start');
+      setView(view);
+      if (options.updateHash !== false && location.hash !== '#' + destination) {
+        history.pushState(null, '', '#' + destination);
+      }
+      scrollToTarget(destination, options.behavior || 'smooth');
+    }
+
+    function routeFromHash(behavior = 'auto') {
+      const targetId = decodeURIComponent(location.hash.slice(1));
+      if (!targetId || !document.getElementById(targetId)) {
+        setView('guided');
+        return;
+      }
+      setView(viewForTarget(targetId));
+      scrollToTarget(targetId, behavior);
+    }
+
+    const learningTabs = [...document.querySelectorAll('[data-stage-select]')];
+    learningTabs.forEach((button, index) => {
+      button.addEventListener('click', () => setLearningStage(button.dataset.stageSelect));
+      button.addEventListener('keydown', event => {
+        let nextIndex = null;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % learningTabs.length;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + learningTabs.length) % learningTabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = learningTabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        setLearningStage(learningTabs[nextIndex].dataset.stageSelect, true);
+      });
+    });
+    document.querySelectorAll('[data-switch-view]').forEach(button => {
+      button.addEventListener('click', () => navigateTo(button.dataset.switchView));
+    });
+    document.querySelectorAll('.view-btn').forEach(button => {
+      button.addEventListener('click', () => navigateTo(button.dataset.view));
+    });
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', event => {
+        const targetId = decodeURIComponent(link.hash.slice(1));
+        if (!document.getElementById(targetId)) return;
+        event.preventDefault();
+        navigateTo(viewForTarget(targetId), targetId);
+      });
+    });
+    setLearningStage(1);
+    if (location.hash) routeFromHash('auto');
+    else setView('guided');
+    window.addEventListener('hashchange', () => routeFromHash('auto'));
+    window.addEventListener('popstate', () => routeFromHash('auto'));
+
+    const sections = [...document.querySelectorAll('.section')];
+    const navLinks = [...document.querySelectorAll('.nav a')];
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach(link => link.classList.toggle('active', link.hash === `#${visible.target.id}`));
+    }, { rootMargin: '-18% 0px -68% 0px', threshold: [0, .2, .5] });
+    sections.forEach(section => observer.observe(section));
+
+    const pathButtons = [...document.querySelectorAll('.path-btn')];
+    const pathNodes = [...document.querySelectorAll('.flow-node[data-paths]')];
+    function setPath(path) {
+      pathButtons.forEach(button => button.classList.toggle('active', button.dataset.path === path));
+      pathNodes.forEach(node => {
+        const paths = node.dataset.paths.split(' ');
+        const active = paths.includes(path);
+        node.classList.toggle('on', active);
+        node.classList.toggle('off', !active);
+      });
+    }
+    pathButtons.forEach(button => button.addEventListener('click', () => setPath(button.dataset.path)));
+    setPath('normal');
+
+    const scenarioTabs = [...document.querySelectorAll('.tab')];
+    const scenarioPanels = [...document.querySelectorAll('.tab-panel')];
+    function activateScenarioTab(tab, focusTab = false) {
+      scenarioTabs.forEach(item => {
+        const selected = item === tab;
+        item.classList.toggle('active', selected);
+        item.setAttribute('aria-selected', String(selected));
+        item.tabIndex = selected ? 0 : -1;
+      });
+      scenarioPanels.forEach(panel => {
+        const selected = panel.id === tab.dataset.tab;
+        panel.classList.toggle('active', selected);
+        panel.setAttribute('aria-hidden', String(!selected));
+      });
+      if (focusTab) tab.focus();
+    }
+    scenarioTabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activateScenarioTab(tab));
+      tab.addEventListener('keydown', event => {
+        let nextIndex = null;
+        if (event.key === 'ArrowRight') nextIndex = (index + 1) % scenarioTabs.length;
+        if (event.key === 'ArrowLeft') nextIndex = (index - 1 + scenarioTabs.length) % scenarioTabs.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = scenarioTabs.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        activateScenarioTab(scenarioTabs[nextIndex], true);
+      });
+    });
+    activateScenarioTab(document.querySelector('.tab.active'));
+
+    document.querySelectorAll('.copy-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(button.dataset.copy);
+          const original = button.textContent;
+          button.textContent = '已复制';
+          setTimeout(() => button.textContent = original, 1200);
+        } catch {
+          button.textContent = button.dataset.copy;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

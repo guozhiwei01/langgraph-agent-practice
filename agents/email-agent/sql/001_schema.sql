@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS outbound_emails (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     task_id BIGINT NOT NULL UNIQUE REFERENCES agent_tasks(id) ON DELETE RESTRICT,
     provider_message_id TEXT,
+    idempotency_key TEXT UNIQUE,
+    rfc_message_id TEXT UNIQUE,
     recipient_email TEXT NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL,
@@ -110,6 +112,50 @@ CREATE TABLE IF NOT EXISTS outbound_emails (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS job_queue (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    task_id BIGINT REFERENCES agent_tasks(id) ON DELETE CASCADE,
+    job_type TEXT NOT NULL CHECK (job_type IN (
+        'sync_gmail', 'process_email', 'approve_reply', 'reject_reply'
+    )),
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    deduplication_key TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'queued'
+        CHECK (status IN ('queued', 'running', 'retry', 'succeeded', 'dead')),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    max_attempts INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts > 0),
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ,
+    locked_by TEXT,
+    last_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_queue_claim
+    ON job_queue (available_at, id)
+    WHERE status IN ('queued', 'retry');
+CREATE INDEX IF NOT EXISTS idx_job_queue_task ON job_queue (task_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    actor TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    request_id TEXT,
+    outcome TEXT NOT NULL DEFAULT 'success'
+        CHECK (outcome IN ('success', 'failure')),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_events_created_at
+    ON audit_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_entity
+    ON audit_events (entity_type, entity_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS tool_executions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

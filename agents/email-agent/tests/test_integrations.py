@@ -5,7 +5,11 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from email_agent.tools.github_issues import sanitize_for_issue
-from email_agent.tools.gmail import _plain_text, send_reply
+from email_agent.tools.gmail import (
+    _plain_text,
+    find_sent_message_by_rfc_message_id,
+    send_reply,
+)
 
 
 class IntegrationAdapterTests(unittest.TestCase):
@@ -42,6 +46,7 @@ class IntegrationAdapterTests(unittest.TestCase):
             thread_id="thread-1",
             in_reply_to="<original@example.com>",
             references="<older@example.com>",
+            message_id_header="<email-agent-task-17@email-agent.local>",
         )
         self.assertEqual(result, "sent-1")
         call = gmail_service.return_value.users.return_value.messages.return_value.send.call_args
@@ -49,6 +54,24 @@ class IntegrationAdapterTests(unittest.TestCase):
         raw = base64.urlsafe_b64decode(call.kwargs["body"]["raw"]).decode()
         self.assertIn("In-Reply-To: <original@example.com>", raw)
         self.assertIn("References: <older@example.com> <original@example.com>", raw)
+        self.assertIn("Message-ID: <email-agent-task-17@email-agent.local>", raw)
+
+    @patch("email_agent.tools.gmail.gmail_service")
+    def test_sent_message_can_be_reconciled_by_rfc_message_id(
+        self, gmail_service: MagicMock
+    ) -> None:
+        gmail_service.return_value.users.return_value.messages.return_value.list.return_value.execute.return_value = {
+            "messages": [{"id": "sent-17"}]
+        }
+        result = find_sent_message_by_rfc_message_id(
+            "<email-agent-task-17@email-agent.local>"
+        )
+        self.assertEqual(result, "sent-17")
+        call = gmail_service.return_value.users.return_value.messages.return_value.list.call_args
+        self.assertEqual(
+            call.kwargs["q"],
+            "in:sent rfc822msgid:<email-agent-task-17@email-agent.local>",
+        )
 
 
 if __name__ == "__main__":

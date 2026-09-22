@@ -19,7 +19,22 @@ from email_agent.prompts import (
     DRAFT_RESPONSE_TEMPLATE,
 )
 from email_agent.response_validation import validate_response
+from email_agent.storage import (
+    get_sent_outbound,
+    get_task,
+    get_tool_success,
+    mark_outbound_sending,
+    mark_task_sent,
+    prepare_outbound,
+    record_review,
+    record_tool_success,
+)
 from email_agent.tools import query_knowledge_base
+from email_agent.tools.github_issues import create_issue, sanitize_for_issue
+from email_agent.tools.gmail import (
+    find_sent_message_by_rfc_message_id,
+    send_reply as send_gmail_reply,
+)
 
 settings = get_settings()
 llm = ChatOpenAI(
@@ -217,7 +232,9 @@ def validation_error_handler(
     return Command(update={"response_validation": validation}, goto="human_review")
 
 
-def human_review_node(state: EmailAgentState) -> Command[Literal["send_reply", "__end__"]]:
+def human_review_node(
+    state: EmailAgentState,
+) -> Command[Literal["send_reply", "record_rejection"]]:
     """
     Human-in-the-loop approval node.
     Rule: interrupt() must come first because code before it re-executes upon resume.
@@ -242,12 +259,161 @@ def human_review_node(state: EmailAgentState) -> Command[Literal["send_reply", "
         final_reply = human_decision.get("edited_response") or state.get("draft_response")
         if not final_reply:
             raise ValueError("Manual triage requires a reviewer-authored response.")
-        return Command(update={"draft_response": final_reply}, goto="send_reply")
+        original_reply = state.get("draft_response") or ""
+        decision = "edited" if final_reply != original_reply else "approved"
+        return Command(
+            update={
+                "draft_response": final_reply,
+                "review_decision": decision,
+                "reviewer_id": human_decision.get("reviewer_id") or "local-reviewer",
+                "review_reason": None,
+            },
+            goto="send_reply",
+        )
 
-    return Command(update={}, goto="__end__")
+    return Command(
+        update={
+            "review_decision": "rejected",
+            "reviewer_id": human_decision.get("reviewer_id") or "local-reviewer",
+            "review_reason": human_decision.get("reason") or "Rejected during local review.",
+        },
+        goto="record_rejection",
+    )
+
+
+def record_rejection_node(state: EmailAgentState) -> dict:
+    """Record a rejected interrupt decision before completing the graph."""
+    task_id = state.get("task_id")
+    if task_id is None:
+        raise ValueError("task_id is required to record a review.")
+    record_review(
+        task_id,
+        reviewer_id=state.get("reviewer_id") or "local-reviewer",
+        decision="rejected",
+        original_draft=state.get("draft_response"),
+        final_response=None,
+        reason=state.get("review_reason") or "Rejected during local review.",
+    )
+    return {}
 
 
 def send_reply_node(state: EmailAgentState) -> dict:
-    """Dispatch email."""
-    print(f"\n[Email Dispatched to {state.get('sender_email')}]:\n{state.get('draft_response')}\n")
-    return {}
+    """Dispatch an approved reply and persist the externally visible result."""
+    task_id = state.get("task_id")
+    if task_id is None:
+        raise ValueError("task_id is required to send an approved reply.")
+
+    task = get_task(task_id)
+    if task is None:
+        raise LookupError(f"Task {task_id} does not exist.")
+    existing = get_sent_outbound(task_id)
+    if existing:
+        return {
+            "draft_response": existing["body"],
+            "provider_message_id": existing["provider_message_id"],
+        }
+
+    final_response = (state.get("draft_response") or "").strip()
+    if not final_response:
+        raise ValueError("An approved response cannot be empty.")
+
+    github_issue_url = None
+    classification = state.get("classification") or {}
+    if classification.get("intent") == "bug":
+        issue = _ensure_github_issue(task_id, classification)
+        github_issue_url = issue["url"]
+        final_response += f"\n\nEngineering reference: {github_issue_url}"
+
+    rfc_message_id = f"<email-agent-task-{task_id}@email-agent.local>"
+    outbound = prepare_outbound(
+        task_id,
+        recipient=task["sender_email"],
+        subject=task["subject"],
+        body=final_response,
+        idempotency_key=f"task:{task_id}:gmail-reply",
+        rfc_message_id=rfc_message_id,
+    )
+    final_response = outbound["body"]
+    if outbound["status"] == "sent":
+        return {
+            "draft_response": final_response,
+            "provider_message_id": outbound["provider_message_id"],
+            "github_issue_url": github_issue_url,
+        }
+
+    reconciled_message_id = find_sent_message_by_rfc_message_id(
+        outbound["rfc_message_id"]
+    )
+    if reconciled_message_id:
+        record_review(
+            task_id,
+            reviewer_id=state.get("reviewer_id") or "local-reviewer",
+            decision=state.get("review_decision") or "approved",
+            original_draft=task.get("draft_response"),
+            final_response=final_response,
+        )
+        mark_task_sent(
+            task_id,
+            recipient=outbound["recipient_email"],
+            subject=outbound["subject"],
+            body=final_response,
+            provider_message_id=reconciled_message_id,
+        )
+        return {
+            "draft_response": final_response,
+            "provider_message_id": reconciled_message_id,
+            "github_issue_url": github_issue_url,
+        }
+
+    metadata = task.get("raw_metadata") or {}
+    mark_outbound_sending(task_id)
+    message_id = send_gmail_reply(
+        recipient=task["sender_email"],
+        subject=task["subject"],
+        body=final_response,
+        thread_id=task["provider_thread_id"],
+        in_reply_to=metadata.get("rfc_message_id"),
+        references=metadata.get("references"),
+        message_id_header=outbound["rfc_message_id"],
+    )
+    record_review(
+        task_id,
+        reviewer_id=state.get("reviewer_id") or "local-reviewer",
+        decision=state.get("review_decision") or "approved",
+        original_draft=task.get("draft_response"),
+        final_response=final_response,
+    )
+    mark_task_sent(
+        task_id,
+        recipient=task["sender_email"],
+        subject=task["subject"],
+        body=final_response,
+        provider_message_id=message_id,
+    )
+    return {
+        "draft_response": final_response,
+        "provider_message_id": message_id,
+        "github_issue_url": github_issue_url,
+    }
+
+
+def _ensure_github_issue(task_id: int, classification: dict) -> dict:
+    """Create one privacy-minimized issue for an approved bug task."""
+    key = f"task:{task_id}:github-issue"
+    existing = get_tool_success(key)
+    if existing:
+        return existing
+    number, url = create_issue(
+        title=sanitize_for_issue(
+            f"Customer bug: {classification.get('topic', 'Uncategorized issue')}"
+        ),
+        description=classification.get("summary", "No sanitized summary available."),
+    )
+    response = {"number": number, "url": url}
+    record_tool_success(
+        task_id,
+        tool_name="github_issue",
+        idempotency_key=key,
+        response=response,
+    )
+    return response

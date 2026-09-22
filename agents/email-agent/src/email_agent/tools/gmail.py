@@ -131,11 +131,14 @@ def send_reply(
     thread_id: str | None,
     in_reply_to: str | None = None,
     references: str | None = None,
+    message_id_header: str | None = None,
 ) -> str:
     settings = get_settings()
     message = EmailMessage()
     message["To"] = recipient
     message["Subject"] = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+    if message_id_header:
+        message["Message-ID"] = message_id_header
     if in_reply_to:
         message["In-Reply-To"] = in_reply_to
         message["References"] = f"{references} {in_reply_to}".strip() if references else in_reply_to
@@ -148,3 +151,15 @@ def send_reply(
         userId=settings.gmail_user_id, body=request
     ).execute()
     return sent["id"]
+
+
+def find_sent_message_by_rfc_message_id(message_id_header: str) -> str | None:
+    """Reconcile an outbox entry against Gmail before retrying a send."""
+    settings = get_settings()
+    response = gmail_service().users().messages().list(
+        userId=settings.gmail_user_id,
+        q=f"in:sent rfc822msgid:{message_id_header}",
+        maxResults=1,
+    ).execute()
+    messages = response.get("messages", [])
+    return messages[0]["id"] if messages else None
